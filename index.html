@@ -3,185 +3,164 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>拾绪 · 灵感日记 v2.0</title>
+    <title>拾绪 · 灵感日记</title>
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <script src="https://cdn.jsdelivr.net/npm/lunar-javascript/lunar.js"></script>
 
     <style>
-        /* =========================================
-           1. 全局变量与主题 (保持原设计精髓)
-           ========================================= */
         :root { 
             --primary: #2c3e50; --accent: #d4af37; --bg: #f8f9fa; --card: #ffffff; --text: #2c3e50; 
             --danger: #e74c3c; --sub: #525c68; --mood-bg: #e9ecef;
             --nav-height: 56px;
-            /* 状态色定义 */
             --energy: 243, 156, 18; --healing: 39, 174, 96; --thinking: 41, 128, 185;
             --release: 231, 76, 60; --melancholy: 52, 73, 94; --fear: 26, 26, 26; --custom: 142, 68, 173;
         }
-
         @media (prefers-color-scheme: dark) {
             :root { --primary: #ecf0f1; --accent: #f1c40f; --bg: #121212; --card: #1e1e1e; --text: #e0e0e0; --sub: #a4b0be; --mood-bg: #2c2c2c; }
         }
 
-        /* 基础重置 */
-        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        html, body { height: 100%; width: 100%; margin: 0; padding: 0; background: var(--bg); font-family: -apple-system, system-ui, sans-serif; color: var(--text); overflow-x: hidden; }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; outline: none; }
+        body { margin: 0; background: var(--bg); font-family: -apple-system, system-ui, sans-serif; color: var(--text); padding-bottom: env(safe-area-inset-bottom); overflow-x: hidden; }
 
-        /* =========================================
-           2. 页面布局架构
-           ========================================= */
-        .page { position: fixed; inset: 0; transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1); background: var(--bg); z-index: 10; overflow-y: auto; padding-top: env(safe-area-inset-top); }
-        
-        /* 详情页滑动动画 */
-        #d-page { display: none; position: absolute; inset: 0; min-height: 100vh; background: var(--bg); z-index: 100; transform: translateX(100%); }
-        #d-page.active { transform: translateX(0); display: block; }
+        /* 页面切换动画 */
+        .page { position: fixed; inset: 0; background: var(--bg); z-index: 10; overflow-y: auto; padding-top: env(safe-area-inset-top); }
+        #d-page { 
+            display: none; position: absolute; inset: 0; width: 100%; min-height: 100vh; 
+            background: var(--bg); z-index: 100; transform: translateX(100%); 
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
+        }
+        #d-page.active { transform: translateX(0); }
 
-        .static-nav { position: sticky; top: 0; width: 100%; height: var(--nav-height); background: var(--bg); border-bottom: 1px solid rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; padding: 0 20px; z-index: 110; }
+        .static-nav { 
+            position: sticky; top: 0; width: 100%; height: var(--nav-height); 
+            background: var(--bg); border-bottom: 1px solid rgba(0,0,0,0.05); 
+            display: flex; justify-content: space-between; align-items: center; padding: 0 20px; z-index: 110; 
+        }
         
-        /* =========================================
-           3. 组件样式
-           ========================================= */
-        .btn-pill { font-size: 13px; font-weight: 600; padding: 8px 18px; border-radius: 20px; border: none; background: var(--mood-bg); color: var(--primary); cursor: pointer; transition: 0.2s; }
+        /* 日历系统 */
+        .cal-section { margin: 10px 15px; border-radius: 20px; background: var(--card); padding: 12px; box-shadow: 0 5px 25px rgba(0,0,0,0.03); }
+        .cal-header { display: flex; justify-content: space-between; align-items: center; padding: 5px 10px 15px; }
+        .cal-week { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-size: 10px; color: var(--sub); margin-bottom: 8px; font-weight: bold; }
+        .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; }
+        .day { height: 52px; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 12px; cursor: pointer; position: relative; }
+        .day span:first-child { font-size: 15px; font-weight: 600; }
+        .day .l { font-size: 9px; margin-top: 2px; white-space: nowrap; }
+        .day.recorded:not(.is-today) { background: var(--mood-bg); }
+        .day.is-today { background: var(--primary) !important; color: var(--bg); }
+        .day.recorded::after { content: ''; position: absolute; bottom: 5px; width: 3px; height: 3px; background: var(--accent); border-radius: 50%; }
+
+        /* 足迹格子 */
+        .growth-grid { display: flex; flex-wrap: wrap; gap: 4px; }
+        .growth-cell { width: 11px; height: 11px; border-radius: 2px; background: var(--mood-bg); }
+
+        /* 核心按钮 */
+        .btn-pill { font-size: 12px; font-weight: 600; padding: 8px 16px; border-radius: 18px; border: none; background: var(--mood-bg); color: var(--primary); cursor: pointer; }
         .btn-save { background: var(--primary); color: var(--bg); }
-        .btn-pill:active { opacity: 0.7; transform: scale(0.96); }
-
-        .icon-btn { background: none; border: none; padding: 8px; cursor: pointer; display: flex; align-items: center; }
+        .icon-btn { background: none; border: none; padding: 8px; display: flex; align-items: center; }
         .icon-btn svg { width: 22px; height: 22px; fill: var(--sub); }
 
-        /* 编辑器增强 */
-        .editor-box { width: 100%; min-height: 50vh; outline: none; font-size: 17px; line-height: 1.8; color: var(--text); padding-bottom: 30vh; white-space: pre-wrap; word-break: break-word; }
+        /* 编辑器组件 */
+        .editor-box { width: 100%; min-height: 55vh; font-size: 17px; line-height: 1.9; color: var(--text); white-space: pre-wrap; outline: none; padding-bottom: 20vh; }
         .editor-box:empty:before { content: attr(placeholder); color: var(--sub); opacity: 0.5; }
+        .static-toolbar { position: sticky; top: var(--nav-height); background: var(--bg); padding: 8px 15px; display: flex; gap: 8px; border-bottom: 1px solid rgba(0,0,0,0.05); z-index: 105; overflow-x: auto; }
+        .fmt-btn { flex: 1; min-width: 45px; padding: 7px 0; border: 1px solid var(--mood-bg); border-radius: 8px; background: var(--card); color: var(--sub); font-weight: bold; font-size: 13px; }
 
-        /* 静态工具栏 */
-        .static-toolbar { position: sticky; top: var(--nav-height); background: var(--bg); padding: 10px 20px; display: flex; gap: 8px; border-bottom: 1px solid rgba(0,0,0,0.03); z-index: 105; }
-        .fmt-btn { flex: 1; padding: 6px; font-size: 12px; font-weight: bold; background: var(--card); border: 1px solid var(--mood-bg); border-radius: 6px; color: var(--sub); }
+        /* 模态框样式 */
+        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(8px); z-index: 300; display: none; align-items: flex-end; }
+        .modal-content { background: var(--card); width: 100%; border-radius: 25px 25px 0 0; padding: 25px; max-height: 85vh; overflow-y: auto; padding-bottom: calc(25px + env(safe-area-inset-bottom)); }
+        .mood-tag { padding: 9px 14px; background: var(--mood-bg); border-radius: 12px; font-size: 12px; cursor: pointer; border: 1px solid transparent; }
+        .mood-tag.active { border-color: var(--accent); color: var(--accent); background: var(--card); font-weight: bold; }
 
-        /* =========================================
-           4. 日历与索引样式 (保留并微调)
-           ========================================= */
-        .home-header { padding: 30px 25px 10px; display: flex; justify-content: space-between; align-items: center; }
-        .cal-section { margin: 10px 15px; border-radius: 20px; background: var(--card); padding: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.02); }
-        .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
-        .day { height: 50px; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 10px; position: relative; cursor: pointer; font-size: 14px; }
-        .day.is-today { background: var(--primary); color: #fff; }
-        .day.recorded:not(.is-today) { background: var(--mood-bg); }
-        .day.recorded::after { content: ''; position: absolute; bottom: 6px; width: 4px; height: 4px; background: var(--accent); border-radius: 50%; }
-
-        /* Markdown 内容渲染样式 */
+        /* 阅读模式样式 */
         .text-v { font-size: 17px; line-height: 1.9; color: var(--sub); }
-        .text-v strong { color: var(--text); border-bottom: 1px solid var(--accent); }
-        .text-v blockquote { border-left: 4px solid var(--accent); margin: 10px 0; padding: 5px 15px; background: rgba(0,0,0,0.02); font-style: italic; }
-        .text-v ul { padding-left: 20px; margin: 10px 0; }
+        .text-v strong { color: var(--text); border-bottom: 2px solid var(--accent); }
+        .text-v blockquote { border-left: 4px solid var(--mood-bg); margin: 15px 0; padding: 10px 15px; background: rgba(0,0,0,0.02); font-style: italic; }
         
-        /* 模态框 */
-        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(4px); z-index: 300; display: none; align-items: flex-end; }
-        .modal-content { background: var(--card); width: 100%; border-radius: 25px 25px 0 0; padding: 25px; max-height: 80vh; overflow-y: auto; }
-
-        /* 密码层 */
+        /* 权限层 */
         #auth-layer { position:fixed; inset:0; background:var(--bg); z-index:400; display:flex; flex-direction:column; align-items:center; justify-content:center; }
-        #pwd-i { padding:15px; border:none; background:var(--mood-bg); color:var(--text); border-radius:15px; margin-bottom:20px; text-align:center; font-size: 20px; width:220px; }
-
-        /* 动画 */
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        .fade-in { animation: fadeIn 0.3s ease; }
+        #pwd-i { padding:15px; border:none; background:var(--mood-bg); color:var(--text); border-radius:20px; margin-bottom:20px; text-align:center; font-size: 24px; width:220px; }
+        .pwd-field { width: 100%; padding: 14px; border-radius: 12px; border: 1px solid var(--mood-bg); background: var(--bg); color: var(--text); margin-bottom: 15px; outline: none; }
     </style>
 </head>
 <body>
 
 <div id="auth-layer">
-    <h2 style="font-weight:200; letter-spacing:8px; margin-bottom: 30px;">拾绪 · SHIXU</h2>
-    <input type="password" id="pwd-i" placeholder="输入访问密码" autocomplete="off">
+    <h2 style="font-weight:200; letter-spacing:10px; margin-bottom: 30px;">拾绪</h2>
+    <input type="password" id="pwd-i" placeholder="请输入密码" autocomplete="off">
     <button class="btn-pill btn-save" style="padding: 12px 40px;" onclick="checkAuth()">解锁灵感</button>
 </div>
 
 <div id="h-page" class="page">
-    <div class="home-header">
-        <h1 style="font-size: 20px; font-weight: 300;">拾绪 · 灵感日记</h1>
-        <button class="icon-btn" onclick="openSettings()">
+    <div style="padding: 30px 25px 10px; display: flex; justify-content: space-between; align-items: center;">
+        <h1 style="font-size: 22px; font-weight: 200;">拾绪 · 灵感日记</h1>
+        <button class="icon-btn" onclick="document.getElementById('settings-modal').style.display='flex'">
             <svg viewBox="0 0 24 24"><path d="M12,15.5A3.5,3.5,0,1,1,15.5,12,3.5,3.5,0,0,1,12,15.5Z M19.43,12.98,21.27,11.5a.44.44,0,0,0,.11-.56l-1.74-3a.44.44,0,0,0-.54-.19l-2.17.87a7.25,7.25,0,0,0-1.26-.73L15.34,5.59a.44.44,0,0,0-.44-.38H11.41a.44.44,0,0,0-.44.38L10.64,7.89a7.25,7.25,0,0,0-1.26.73l-2.17-.87a.44.44,0,0,0-.54.19l-1.74,3a.44.44,0,0,0,.11.56l1.84,1.48a7.25,7.25,0,0,0,0,1.46l-1.84,1.48a.44.44,0,0,0-.11.56l1.74,3a.44.44,0,0,0,.54.19l2.17-.87a7.25,7.25,0,0,0,1.26.73l.33,2.3a.44.44,0,0,0,.44.38h3.49a.44.44,0,0,0,.44-.38l.33-2.3a7.25,7.25,0,0,0,1.26-.73l2.17.87a.44.44,0,0,0,.54-.19l1.74-3a.44.44,0,0,0-.11-.56Z"/></svg>
         </button>
     </div>
 
-    <div style="display: flex; gap: 20px; padding: 0 25px; margin-bottom: 15px;">
-        <div style="flex:1">
-            <div style="font-size: 10px; text-transform: uppercase; color: var(--sub); opacity: 0.6;">累计</div>
-            <div id="s-total" style="font-size: 20px; font-weight: 300;">0</div>
-        </div>
-        <div style="flex:1">
-            <div style="font-size: 10px; text-transform: uppercase; color: var(--sub); opacity: 0.6;">本月</div>
-            <div id="s-month" style="font-size: 20px; font-weight: 300;">0</div>
-        </div>
-        <div style="flex:2">
-            <div style="font-size: 10px; text-transform: uppercase; color: var(--sub); opacity: 0.6;">总字数</div>
-            <div id="s-words" style="font-size: 20px; font-weight: 300;">0</div>
-        </div>
+    <div style="display: flex; gap: 20px; padding: 0 25px; margin-bottom: 10px;">
+        <div><span style="font-size: 9px; color: var(--sub); opacity: 0.6; display: block;">累计</span><span id="s-total" style="font-size: 18px; font-weight: bold;">0</span></div>
+        <div><span style="font-size: 9px; color: var(--sub); opacity: 0.6; display: block;">本月</span><span id="s-month" style="font-size: 18px; font-weight: bold;">0</span></div>
+        <div><span style="font-size: 9px; color: var(--sub); opacity: 0.6; display: block;">总字数</span><span id="s-words" style="font-size: 18px; font-weight: bold;">0</span></div>
     </div>
 
     <div class="cal-section">
-        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px;">
-            <div id="cal-m-label" style="font-weight: 600;"></div>
-            <div style="display: flex; gap: 5px; background: var(--mood-bg); padding: 3px; border-radius: 12px;">
-                <button class="btn-pill" style="padding: 4px 10px; font-size: 10px;" onclick="moveMonth(-1)">Prev</button>
-                <button class="btn-pill" style="padding: 4px 10px; font-size: 10px; background: var(--card);" onclick="goToday()">Today</button>
-                <button class="btn-pill" style="padding: 4px 10px; font-size: 10px;" onclick="moveMonth(1)">Next</button>
+        <div class="cal-header">
+            <div id="cal-m-label" style="font-weight: 600; font-size: 16px;">加载中...</div>
+            <div style="display: flex; background: var(--mood-bg); padding: 3px; border-radius: 12px; gap: 2px;">
+                <button class="btn-pill" style="padding: 4px 10px;" onclick="moveMonth(-1)">◀</button>
+                <button class="btn-pill" style="padding: 4px 10px; background: var(--card);" onclick="goToday()">今天</button>
+                <button class="btn-pill" style="padding: 4px 10px;" onclick="moveMonth(1)">▶</button>
             </div>
         </div>
+        <div class="cal-week"><div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div><div>日</div></div>
         <div class="cal-grid" id="cal-g"></div>
     </div>
 
-    <div style="margin: 20px 15px; padding: 15px; background: var(--card); border-radius: 20px;">
-        <div style="font-size: 11px; font-weight: bold; color: var(--sub); margin-bottom: 10px; display: flex; justify-content: space-between;">
-            <span>灵感热力</span>
-            <span id="days-count">0 Days</span>
+    <div style="margin: 10px 15px; padding: 15px 18px; background: var(--card); border-radius: 20px; box-shadow: 0 5px 25px rgba(0,0,0,0.03);">
+        <div style="font-size: 11px; font-weight: bold; color: var(--sub); margin-bottom: 12px; display: flex; justify-content: space-between;">
+            <span id="growth-title">灵感足迹</span>
+            <span id="days-count">0 天</span>
         </div>
-        <div id="growth-grid" style="display: flex; flex-wrap: wrap; gap: 4px;"></div>
+        <div class="growth-grid" id="growth-grid"></div>
     </div>
 
-    <div style="margin: 20px 15px;">
-        <input type="text" id="search-input" placeholder="搜索你的闪念..." oninput="filterIndex()" style="width:100%; padding:15px; border:none; background:var(--card); border-radius:15px; font-size:14px; box-shadow: 0 4px 15px rgba(0,0,0,0.02);">
-        <div id="index-list" style="margin-top: 10px;"></div>
-        <button class="btn-pill btn-save" style="width:100%; margin-top: 15px; padding: 15px;" onclick="goRandom()">✨ 随机漫步旧时光</button>
+    <div style="margin: 10px 15px;">
+        <input type="text" id="search-input" placeholder="搜索你的闪念..." oninput="filterIndex()" style="width: 100%; padding: 15px; border-radius: 15px; border: none; background: var(--card); font-size: 14px;">
+        <div id="index-list" style="margin-top:10px;"></div>
+        <button class="btn-pill btn-save" style="width: 100%; margin-top: 15px; padding: 15px;" onclick="goRandom()">✨ 随机漫步</button>
     </div>
 </div>
 
 <div id="d-page">
     <div class="static-nav">
         <button class="btn-pill" onclick="closePage()">返回</button>
-        <span id="d-date-title" style="font-size: 14px; font-weight: 600; opacity: 0.8;"></span>
-        <div id="v-tools">
+        <span id="d-date-title" style="font-size: 15px; font-weight: 700; letter-spacing: 1px;"></span>
+        <div id="v-tools" style="display: flex; gap: 8px;">
+            <button class="icon-btn" onclick="doDel()"><svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg></button>
             <button class="btn-pill btn-save" onclick="enterEdit()">编辑</button>
         </div>
-        <div id="e-tools" style="display:none">
-            <button class="btn-pill btn-save" onclick="save(true)">保存</button>
-        </div>
+        <div id="e-tools" style="display: none;"><button class="btn-pill btn-save" onclick="save(true)">完成</button></div>
     </div>
-
     <div class="static-toolbar" id="edit-toolbar" style="display: none;">
         <button class="fmt-btn" onclick="insertMD('**')">B</button>
         <button class="fmt-btn" onclick="insertMD('__')">U</button>
         <button class="fmt-btn" onclick="insertMD('~~')">S</button>
         <button class="fmt-btn" onclick="insertMD('> ')">Quote</button>
-        <button class="fmt-btn" onclick="insertMD('- ')">List</button>
     </div>
-
     <div style="max-width: 650px; margin: 0 auto; padding: 20px 25px;">
         <div id="v-box">
-            <h2 id="title-v" style="font-size: 26px; margin-bottom: 10px;"></h2>
-            <div id="meta-v" style="font-size: 12px; color: var(--sub); margin-bottom: 25px;"></div>
+            <h2 id="title-v" style="margin-top: 0; font-size: 28px;"></h2>
+            <div id="meta-v" style="font-size: 11px; color: var(--sub); margin-bottom: 25px; border-left: 3px solid var(--accent); padding-left: 10px;"></div>
             <div id="content-v" class="text-v"></div>
-            <div style="margin-top: 50px; opacity: 0.3; text-align: center;">
-                <button class="icon-btn" style="margin: 0 auto;" onclick="doDel()">删除此篇</button>
-            </div>
         </div>
-
         <div id="e-box" style="display: none;">
-            <div id="mood-trigger-btn" onclick="openMoodModal()" style="display: inline-block; padding: 6px 15px; background: var(--mood-bg); border-radius: 15px; font-size: 12px; margin-bottom: 15px; color: var(--sub);">选择心情...</div>
-            <input type="text" id="e-title" placeholder="为这段灵感命名..." style="width:100%; border:none; background:none; font-size:24px; font-weight:700; margin-bottom:20px; outline:none; color:var(--text);">
-            <div id="e-content" contenteditable="true" class="editor-box" placeholder="此刻在想什么？支持简单的 Markdown 语法..." oninput="updateWC()"></div>
-            <div style="position: sticky; bottom: 20px; font-size: 10px; color: var(--sub); font-weight: bold; background: var(--bg); padding: 5px; display: inline-block; border-radius: 5px;">
-                字数：<span id="wc-d">0</span> | <span id="save-hint"></span>
+            <div id="mood-trigger-btn" onclick="openMoodModal()" style="display: inline-block; padding: 8px 16px; background: var(--mood-bg); border-radius: 20px; font-size: 12px; color: var(--sub); margin-bottom: 15px;">选择心情...</div>
+            <input type="text" id="e-title" placeholder="给今天安个标题..." style="width:100%; border:none; background:none; font-size:24px; font-weight:700; margin-bottom:15px; color:var(--text); outline: none;">
+            <div id="e-content" contenteditable="true" class="editor-box" placeholder="写点什么..."></div>
+            <div style="font-size: 11px; color: var(--sub); font-weight: 700; margin-top: 10px;">
+                字数：<span id="wc-d">0</span> <span id="save-hint" style="margin-left: 10px; opacity: 0.6;"></span>
             </div>
         </div>
     </div>
@@ -189,20 +168,33 @@
 
 <div id="mood-modal" class="modal" onclick="this.style.display='none'">
     <div class="modal-content" onclick="event.stopPropagation()">
-        <div id="mood-grid-main" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px;">
-            </div>
-        <button class="btn-pill btn-save" style="width:100%" onclick="document.getElementById('mood-modal').style.display='none'">确定</button>
+        <div id="mood-grid-main" style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px;"></div>
+        <div style="display:flex; gap:8px;">
+            <input type="text" id="custom-mood-i" placeholder="临时添加自定义标签..." style="flex:1; border:none; background:var(--mood-bg); padding:12px; border-radius:12px; font-size:13px;">
+            <button class="btn-pill btn-save" onclick="addTransientMood()">添加</button>
+        </div>
+        <button class="btn-pill" style="width:100%; margin-top: 25px; padding: 12px;" onclick="document.getElementById('mood-modal').style.display='none'">确定</button>
     </div>
 </div>
 
 <div id="settings-modal" class="modal" onclick="this.style.display='none'">
     <div class="modal-content" onclick="event.stopPropagation()">
-        <h3 style="font-weight: 300; margin-top: 0;">设置与同步</h3>
-        <button class="btn-pill" style="width:100%; margin-bottom:10px; text-align:left;" onclick="exportJSON()">备份所有数据 (Export JSON)</button>
-        <button class="btn-pill" style="width:100%; margin-bottom:10px; text-align:left;" onclick="document.getElementById('file-i').click()">导入备份文件 (Import JSON)</button>
-        <button class="btn-pill" style="width:100%; color:var(--danger); text-align:left;" onclick="clearAllData()">⚠️ 清空本地数据</button>
+        <h3 style="font-weight: 300; margin-top: 0; margin-bottom: 20px;">系统设置</h3>
+        <button class="btn-pill" style="width:100%; margin-bottom:12px; text-align:left; padding: 14px;" onclick="showPwdModal()">修改访问密码 →</button>
+        <button class="btn-pill" style="width:100%; margin-bottom:12px; text-align:left; padding: 14px;" onclick="exportJSON()">备份灵感 (Export)</button>
+        <button class="btn-pill" style="width:100%; margin-bottom:12px; text-align:left; padding: 14px;" onclick="document.getElementById('file-i').click()">恢复灵感 (Import)</button>
+        <button class="btn-pill" style="width:100%; color:var(--danger); text-align:left; padding: 14px; margin-top: 10px;" onclick="clearAllData()">⚠️ 清空所有本地记录</button>
         <input type="file" id="file-i" style="display:none" onchange="importJSON(this)">
-        <button class="btn-pill btn-save" style="width:100%; margin-top:20px;" onclick="this.closest('.modal').style.display='none'">关闭</button>
+        <button class="btn-pill btn-save" style="width:100%; margin-top: 25px; padding: 14px;" onclick="document.getElementById('settings-modal').style.display='none'">完成</button>
+    </div>
+</div>
+
+<div id="pwd-modal" class="modal" onclick="this.style.display='none'">
+    <div class="modal-content" onclick="event.stopPropagation()">
+        <h3 style="font-weight: 300; margin-top: 0; margin-bottom: 20px;">修改访问密码</h3>
+        <input type="password" id="old-pwd" class="pwd-field" placeholder="旧密码">
+        <input type="password" id="new-pwd" class="pwd-field" placeholder="新密码">
+        <button class="btn-pill btn-save" style="width:100%; padding: 14px;" onclick="updatePassword()">确认修改</button>
     </div>
 </div>
 
@@ -213,328 +205,295 @@
     let db, curMonth = new Date(), curKey = '', dataMap = new Map();
     let isEditState = false, activeMoods = [], autoSaveTimer = null;
     const PWD_KEY = 'ShiXu_v2_PWD';
-    const MOOD_LIST = ['💡 灵感', '🚀 动力', '🌈 快乐', '😊 平静', '🌿 成长', '☕ 悠闲', '📝 思考', '🤔 疑惑', '🌑 害怕', '💢 气愤', '😢 低落'];
+    const DB_NAME = 'ShiXu_Official_DB_v2';
+    const MOOD_DEFAULTS = ['💡 灵感', '🚀 动力', '🌈 快乐', '😊 平静', '🌿 成长', '☕ 悠闲', '📝 思考', '🤔 疑惑', '🌑 害怕', '💢 气愤', '😢 低落'];
+    const moodFamilies = {'💡 灵感': 'f-energy', '🚀 动力': 'f-energy', '🌈 快乐': 'f-energy', '😊 平静': 'f-healing', '🌿 成长': 'f-healing', '☕ 悠闲': 'f-healing', '📝 思考': 'f-thinking', '🤔 疑惑': 'f-thinking', '🌑 害怕': 'f-fear', '💢 气愤': 'f-release', '😢 低落': 'f-melancholy'};
 
-    // 初始化心情选择器
-    const moodGrid = document.getElementById('mood-grid-main');
-    MOOD_LIST.forEach(m => {
-        const div = document.createElement('div');
-        div.className = 'btn-pill';
-        div.style.textAlign = 'center';
-        div.innerText = m;
-        div.onclick = () => toggleMood(m, div);
-        moodGrid.appendChild(div);
-    });
-
-    /**
-     * 2. 权限与安全
-     */
+	// 通用字数计算逻辑：中文字数 + 英文单词数
+	function getWordCount(text) {
+		if (!text) return 0;
+		const chineseChars = text.match(/[\u4e00-\u9fa5]/g) || [];
+		const englishWords = text.match(/[a-zA-Z]{2,}/g) || [];
+		return chineseChars.length + englishWords.length;
+	}
+	
     function checkAuth() {
-        const v = document.getElementById('pwd-i').value;
-        const s = localStorage.getItem(PWD_KEY);
-        // 初次设置密码
-        if(!s) {
-            if(v.length < 1) return alert("请设置一个初始密码");
-            localStorage.setItem(PWD_KEY, btoa(v)); // 建议生产环境使用 SHA-256
-            initDB();
-        } else if(btoa(v) === s) {
-            initDB();
-        } else {
-            alert("密码不正确");
-            document.getElementById('pwd-i').value = '';
-        }
+        const input = document.getElementById('pwd-i').value, stored = localStorage.getItem(PWD_KEY);
+        if(!stored) { localStorage.setItem(PWD_KEY, btoa(input)); start(); }
+        else if(btoa(input) === stored) start(); else { alert("密码错误"); document.getElementById('pwd-i').value=''; }
     }
 
-    function initDB() {
-        document.getElementById('auth-layer').style.display='none';
-        const req = indexedDB.open("ShiXu_DB_V2", 1);
-        req.onupgradeneeded = e => e.target.result.createObjectStore("notes", {keyPath: "date"});
-        req.onsuccess = e => { db = e.target.result; sync(); };
+    function start() {
+        // 先隐藏权限层，防止 IndexedDB 加载时卡顿界面
+        document.getElementById('auth-layer').style.display = 'none';
+        
+        try {
+            const req = indexedDB.open(DB_NAME, 1);
+            req.onupgradeneeded = e => e.target.result.createObjectStore("notes", {keyPath: "date"});
+            req.onsuccess = e => { db = e.target.result; sync(); };
+            req.onerror = () => alert("数据库连接失败，请确保不在无痕模式运行。");
+        } catch(e) { alert("初始化异常: " + e.message); }
     }
 
     /**
-     * 3. Markdown 解析与渲染升级
-     */
-    function renderMarkdown(text) {
-        if (!text) return '';
-        let html = text
-            .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;") 
-            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-            .replace(/__(.*?)__/g, '<u>$1</u>')
-            .replace(/~~(.*?)~~/g, '<del>$1</del>')
-            .replace(/^> (.*$)/gm, '<blockquote>$1</blockquote>');
-        
-        // 修复列表解析逻辑
-        const lines = html.split('\n');
-        let inList = false;
-        const processedLines = lines.map(line => {
-            if (line.trim().startsWith('- ')) {
-                const li = `<li>${line.trim().substring(2)}</li>`;
-                if (!inList) { inList = true; return '<ul>' + li; }
-                return li;
-            } else {
-                if (inList) { inList = false; return '</ul>' + line; }
-                return line;
-            }
-        });
-        if (inList) processedLines.push('</ul>');
-        
-        return processedLines.join('<br>');
-    }
-
-    /**
-     * 4. 编辑器增强：带选区包裹的 MD 插入
-     */
-    function insertMD(sym) {
-        const editor = document.getElementById('e-content');
-        editor.focus();
-        const sel = window.getSelection();
-        if (!sel.rangeCount) return;
-
-        const range = sel.getRangeAt(0);
-        const selectedText = range.toString();
-        
-        // 如果是列表或引用，只需在行首插入
-        const isLineTag = sym === '> ' || sym === '- ';
-        let insertText = '';
-        
-        if (isLineTag) {
-            insertText = sym + selectedText;
-        } else {
-            // 成对包裹：如果有选区则包裹，无选区则插入成对符号并将光标居中
-            insertText = selectedText ? `${sym}${selectedText}${sym}` : `${sym}${sym}`;
-        }
-
-        const textNode = document.createTextNode(insertText);
-        range.deleteContents();
-        range.insertNode(textNode);
-
-        // 光标定位逻辑
-        const newRange = document.createRange();
-        if (!selectedText && !isLineTag) {
-            newRange.setStart(textNode, sym.length); // 移到符号中间
-        } else {
-            newRange.setStartAfter(textNode); // 移到插入内容之后
-        }
-        newRange.collapse(true);
-        sel.removeAllRanges();
-        sel.addRange(newRange);
-        
-        updateWC();
-        editor.dispatchEvent(new Event('input')); 
-    }
-
-    /**
-     * 5. 数据同步与逻辑
+     * 2. 数据统计与足迹年份同步
      */
     async function sync() {
+        if(!db) return;
         const tx = db.transaction("notes", "readonly");
-        const store = tx.objectStore("notes");
-        
-        // 性能优化：并行获取数据统计
-        const all = await new Promise(r => store.getAll().onsuccess = e => r(e.target.result));
-        
+        const all = await new Promise(r => tx.objectStore("notes").getAll().onsuccess = e => r(e.target.result));
         dataMap.clear();
-        let totalWords = 0;
-        let monthCount = 0;
-        const curMonthStr = `${curMonth.getFullYear()}/${curMonth.getMonth() + 1}/`;
-
+        let tw = 0, mc = 0, yc = 0;
+        
+        // 足迹年份随日历年份自动同步
+        const viewYear = curMonth.getFullYear(); 
+        const cmPrefix = `${viewYear}/${curMonth.getMonth()+1}/`;
+        
         all.forEach(n => {
             dataMap.set(n.date, n);
-            totalWords += (n.words || 0);
-            if(n.date.startsWith(curMonthStr)) monthCount++;
+            tw += (n.words || 0);
+            if(n.date.startsWith(cmPrefix)) mc++;
+            // 根据日历视图年份进行足迹统计
+            if(new Date(n.date.replace(/\//g, '-')).getFullYear() === viewYear) yc++;
         });
 
         document.getElementById('s-total').innerText = all.length;
-        document.getElementById('s-words').innerText = totalWords.toLocaleString();
-        document.getElementById('s-month').innerText = monthCount;
-        document.getElementById('days-count').innerText = `${all.length} Days`;
-
+        document.getElementById('s-words').innerText = tw.toLocaleString();
+        document.getElementById('s-month').innerText = mc;
+        document.getElementById('days-count').innerText = `${yc} 天`;
+        document.getElementById('growth-title').innerText = `${viewYear}年 灵感足迹`;
+        
         renderCal();
-        renderGrowth(all);
+        renderGrowth(all, viewYear);
     }
 
+    /**
+     * 3. 视觉组件与节日修正
+     */
     function renderCal() {
         const g = document.getElementById('cal-g'); g.innerHTML = '';
         const y = curMonth.getFullYear(), m = curMonth.getMonth();
         document.getElementById('cal-m-label').innerText = `${y}年 ${m+1}月`;
-        
         const first = new Date(y, m, 1).getDay();
         const days = new Date(y, m+1, 0).getDate();
         const offset = (first === 0 ? 6 : first - 1); 
-        
         for(let i=0; i<offset; i++) g.innerHTML += '<div></div>';
+        
         for(let d=1; d<=days; d++) {
             const dateObj = new Date(y, m, d);
-            const k = dateObj.toLocaleDateString();
-            const l = Solar.fromDate(dateObj).getLunar();
-            const festival = l.getFestivals()[0] || l.getJieQi() || "";
-            
+            const k = `${y}/${m+1}/${d}`;
+            let f = "", lunarDay = "";
+            if(typeof Solar !== 'undefined') {
+                const l = Solar.fromDate(dateObj).getLunar();
+                f = l.getFestivals()[0] || l.getJieQi() || "";
+                if (f === "龙头节") f = "龙抬头"; // 龙抬头修正
+                lunarDay = l.getDayInChinese();
+            }
             const el = document.createElement('div');
-            el.className = `day ${k === new Date().toLocaleDateString() ? 'is-today' : ''} ${dataMap.has(k) ? 'recorded' : ''}`;
-            el.innerHTML = `<span>${d}</span><span style="font-size:8px; opacity:0.6">${festival || l.getDayInChinese()}</span>`;
+            const todayK = `${new Date().getFullYear()}/${new Date().getMonth()+1}/${new Date().getDate()}`;
+            el.className = `day ${k === todayK ? 'is-today' : ''} ${dataMap.has(k) ? 'recorded' : ''}`;
+            el.innerHTML = `<span>${d}</span><span class="l" style="color:${f ? 'var(--danger)' : 'var(--sub)'}">${f || lunarDay}</span>`;
             el.onclick = () => openNote(k);
             g.appendChild(el);
         }
     }
 
-    function renderGrowth(all) {
-        const grid = document.getElementById('growth-grid');
-        grid.innerHTML = '';
-        all.sort((a,b) => new Date(a.date) - new Date(b.date)).slice(-100).forEach(n => {
-            const cell = document.createElement('div');
-            const level = n.words > 300 ? 1 : n.words > 100 ? 0.6 : 0.3;
-            cell.style = `width:10px; height:10px; border-radius:2px; background:rgba(var(--healing), ${level});`;
-            grid.appendChild(cell);
-        });
+    function openNote(k) {
+        curKey = k; const d = dataMap.get(k);
+        const dp = document.getElementById('d-page');
+        const p = k.split('/');
+        // 跨平台日期格式美化适配
+        document.getElementById('d-date-title').innerText = `${p[0]} . ${p[1]} . ${p[2]}`;
+        dp.style.display = 'block';
+        requestAnimationFrame(() => dp.classList.add('active'));
+        d ? showView(d) : enterEdit();
     }
 
     /**
-     * 6. 交互控制
+     * 4. 字数统计与自动保存
      */
-    function openNote(k) {
-        curKey = k;
-        const d = dataMap.get(k);
-        const dp = document.getElementById('d-page');
-        document.getElementById('d-date-title').innerText = k;
-        dp.style.display = 'block';
-        setTimeout(() => dp.classList.add('active'), 10);
-        
-        if(d) showView(d); else enterEdit();
-    }
-
-    function closePage() {
-        const dp = document.getElementById('d-page');
-        dp.classList.remove('active');
-        setTimeout(() => dp.style.display = 'none', 400);
-        sync();
-    }
-
-    function showView(d) {
-        isEditState = false;
-        document.getElementById('v-box').style.display = 'block';
-        document.getElementById('e-box').style.display = 'none';
-        document.getElementById('v-tools').style.display = 'block';
-        document.getElementById('e-tools').style.display = 'none';
-        document.getElementById('edit-toolbar').style.display = 'none';
-
-        document.getElementById('title-v').innerText = d.title || "未命名灵感";
-        document.getElementById('meta-v').innerText = `${d.mood || ''} · 约 ${d.words} 字`;
-        document.getElementById('content-v').innerHTML = renderMarkdown(d.content);
-    }
-
-    function enterEdit() {
-        isEditState = true;
-        const d = dataMap.get(curKey);
-        document.getElementById('v-box').style.display = 'none';
-        document.getElementById('e-box').style.display = 'block';
-        document.getElementById('v-tools').style.display = 'none';
-        document.getElementById('e-tools').style.display = 'block';
-        document.getElementById('edit-toolbar').style.display = 'flex';
-
-        document.getElementById('e-title').value = d ? d.title : '';
-        document.getElementById('e-content').innerText = d ? d.content : '';
-        activeMoods = d && d.mood ? d.mood.split(',') : [];
-        updateMoodDisplay();
+    const editor = document.getElementById('e-content');
+    editor.addEventListener('input', () => {
         updateWC();
-    }
-
-    function save(isManual) {
-        const content = document.getElementById('e-content').innerText;
-        const title = document.getElementById('e-title').value;
-        const data = {
-            date: curKey,
-            title: title,
-            content: content,
-            mood: activeMoods.join(','),
-            words: content.length
-        };
-
-        db.transaction("notes", "readwrite").objectStore("notes").put(data).onsuccess = () => {
-            if(isManual) showView(data);
-            const hint = document.getElementById('save-hint');
-            hint.innerText = "已自动保存";
-            setTimeout(() => hint.innerText = "", 2000);
-        };
-    }
-
-    function updateWC() {
-        const len = document.getElementById('e-content').innerText.length;
-        document.getElementById('wc-d').innerText = len;
-        // 自动保存逻辑
         clearTimeout(autoSaveTimer);
-        autoSaveTimer = setTimeout(() => isEditState && save(false), 2000);
-    }
+        autoSaveTimer = setTimeout(() => isEditState && save(false), 6000);
+    });
 
-    function toggleMood(m, el) {
-        if(activeMoods.includes(m)) {
-            activeMoods = activeMoods.filter(i => i !== m);
-            el.style.background = 'var(--mood-bg)';
-        } else {
-            activeMoods.push(m);
-            el.style.background = 'var(--accent)';
+	function updateWC() {
+		const text = editor.innerText || "";
+		// 统一调用通用函数
+		document.getElementById('wc-d').innerText = getWordCount(text); 
+		
+		clearTimeout(autoSaveTimer);
+		autoSaveTimer = setTimeout(() => isEditState && save(false), 6000);
+	}
+
+    function save(manual) {
+		const c = editor.innerText;
+		// 使用新逻辑计算字数
+		const wordCount = getWordCount(c); 
+
+		const d = { 
+			date: curKey, 
+			title: document.getElementById('e-title').value, 
+			content: c, 
+			mood: activeMoods.join(','), 
+			words: wordCount // 这里已更改，确保存入数据库的是计算后的字数
+		};
+
+		db.transaction("notes", "readwrite").objectStore("notes").put(d).onsuccess = () => {
+			if(manual) showView(d);
+			const hint = document.getElementById('save-hint');
+			hint.innerText = "已自动保存";
+			setTimeout(() => hint.innerText = "", 2000);
+		};
+	}
+
+    /**
+     * 5. 功能修复：清空记录与备份带日期
+     */
+    async function clearAllData() {
+        if(confirm("确定永久清空所有记录吗？此操作无法撤销。")) {
+            const tx = db.transaction("notes", "readwrite");
+            tx.objectStore("notes").clear().onsuccess = () => {
+                sync();
+                document.getElementById('settings-modal').style.display='none';
+                alert("本地数据已成功清空");
+            };
         }
-        updateMoodDisplay();
     }
 
-    function updateMoodDisplay() {
-        document.getElementById('mood-trigger-btn').innerText = activeMoods.length ? activeMoods.join(' ') : '选择心情...';
-    }
-
-    // 辅助功能：月度切换、搜索等...
-    function moveMonth(n) { curMonth.setMonth(curMonth.getMonth() + n); renderCal(); }
-    function goToday() { curMonth = new Date(); renderCal(); }
-    function openSettings() { document.getElementById('settings-modal').style.display = 'flex'; }
-    function openMoodModal() { document.getElementById('mood-modal').style.display = 'flex'; }
-
-    function filterIndex() {
-        const q = document.getElementById('search-input').value.toLowerCase();
-        const list = document.getElementById('index-list');
-        list.innerHTML = '';
-        if(!q) return;
-        
-        Array.from(dataMap.values()).filter(n => (n.title + n.content).toLowerCase().includes(q)).slice(0, 5).forEach(n => {
-            const item = document.createElement('div');
-            item.style = "padding:12px; background:var(--card); margin-bottom:5px; border-radius:10px; font-size:13px; cursor:pointer;";
-            item.innerHTML = `<div style="font-weight:bold">${n.title || '无标题'}</div><div style="font-size:10px; opacity:0.5">${n.date}</div>`;
-            item.onclick = () => openNote(n.date);
-            list.appendChild(item);
-        });
-    }
-
-    function goRandom() {
-        const ks = Array.from(dataMap.keys());
-        if(ks.length) openNote(ks[Math.floor(Math.random()*ks.length)]);
-    }
-
-    // 备份与恢复
     function exportJSON() {
-        db.transaction("notes", "readonly").objectStore("notes").getAll().onsuccess = e => {
-            const blob = new Blob([JSON.stringify(e.target.result)], {type:"application/json"});
-            const a = document.createElement("a");
+        db.transaction("notes").objectStore("notes").getAll().onsuccess = e => {
+            // 在导出的文件名中添加当天日期
+            const dateStr = new Date().toISOString().split('T')[0];
+            const fileName = `ShiXu_Backup_${dateStr}.json`;
+            const blob = new Blob([JSON.stringify(e.target.result)], {type: 'application/json'});
+            const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
-            a.download = `shixu_backup_${new Date().getTime()}.json`;
+            a.download = fileName;
             a.click();
         };
     }
 
-    function importJSON(input) {
-        const reader = new FileReader();
-        reader.onload = e => {
-            const data = JSON.parse(e.target.result);
-            const tx = db.transaction("notes", "readwrite");
-            data.forEach(item => tx.objectStore("notes").put(item));
-            tx.oncomplete = () => { alert("导入完成"); sync(); };
-        };
-        reader.readAsText(input.files[0]);
+    /**
+     * 6. 其他辅助函数保持稳定
+     */
+    function renderMoodModal() {
+        const container = document.getElementById('mood-grid-main');
+        container.innerHTML = '';
+        const all = [...new Set([...MOOD_DEFAULTS, ...activeMoods])];
+        all.forEach(m => {
+            const el = document.createElement('div');
+            el.className = `mood-tag ${activeMoods.includes(m) ? 'active' : ''}`;
+            el.innerText = m;
+            el.onclick = () => {
+                if(activeMoods.includes(m)) activeMoods = activeMoods.filter(x => x !== m);
+                else if(activeMoods.length < 5) activeMoods.push(m);
+                updateMoodDisplay(); renderMoodModal(); save(false);
+            };
+            container.appendChild(el);
+        });
     }
-    
-    function doDel() {
-        if(confirm("确定永久删除这段灵感吗？")) {
-            db.transaction("notes", "readwrite").objectStore("notes").delete(curKey).onsuccess = () => closePage();
+
+    function addTransientMood() {
+        const i = document.getElementById('custom-mood-i');
+        const v = i.value.trim();
+        if(v && !activeMoods.includes(v)) {
+            activeMoods.push(v); i.value = ''; updateMoodDisplay(); renderMoodModal(); save(false);
         }
     }
-</script>
 
+    function showPwdModal() { 
+        document.getElementById('pwd-modal').style.display='flex'; 
+        document.getElementById('settings-modal').style.display='none'; 
+    }
+    
+    function updatePassword() {
+        const oldV = document.getElementById('old-pwd').value, newV = document.getElementById('new-pwd').value;
+        if(btoa(oldV) === localStorage.getItem(PWD_KEY)) {
+            localStorage.setItem(PWD_KEY, btoa(newV));
+            alert("密码更新成功"); document.getElementById('pwd-modal').style.display='none';
+        } else alert("旧密码验证不通过");
+    }
+
+    function getRGB(v) {
+        if(v.startsWith('var')) return getComputedStyle(document.documentElement).getPropertyValue(v.slice(4,-1)).trim();
+        return "200,200,200";
+    }
+
+    function renderGrowth(all, year) {
+        const grid = document.getElementById('growth-grid'); grid.innerHTML = '';
+        all.filter(n => new Date(n.date.replace(/\//g, '-')).getFullYear() === year)
+           .sort((a,b) => new Date(a.date.replace(/\//g, '-')) - new Date(b.date.replace(/\//g, '-')))
+           .forEach(n => {
+               const cell = document.createElement('div');
+               const family = moodFamilies[n.mood.split(',')[0]] || 'f-custom';
+               const lv = n.words > 300 ? 'lv-3' : (n.words > 100 ? 'lv-2' : 'lv-1');
+               cell.className = `growth-cell ${family} ${lv}`;
+               const colorMap = {'f-energy':'var(--energy)','f-healing':'var(--healing)','f-thinking':'var(--thinking)','f-release':'var(--release)','f-melancholy':'var(--melancholy)','f-fear':'var(--fear)','f-custom':'var(--custom)'};
+               cell.style.backgroundColor = `rgba(${getRGB(colorMap[family]||'#ccc')}, ${lv==='lv-3'?1:lv==='lv-2'?0.6:0.3})`;
+               grid.appendChild(cell);
+           });
+    }
+
+    function enterEdit() {
+        isEditState = true; const d = dataMap.get(curKey);
+        document.getElementById('v-box').style.display='none'; document.getElementById('e-box').style.display='block';
+        document.getElementById('v-tools').style.display='none'; document.getElementById('e-tools').style.display='block';
+        document.getElementById('edit-toolbar').style.display='flex';
+        document.getElementById('e-title').value = d?d.title:''; editor.innerText = d?d.content:'';
+        activeMoods = d && d.mood ? d.mood.split(',') : []; updateMoodDisplay(); updateWC();
+    }
+
+    function showView(d) {
+        isEditState = false;
+        document.getElementById('v-box').style.display='block'; document.getElementById('e-box').style.display='none';
+        document.getElementById('v-tools').style.display='flex'; document.getElementById('e-tools').style.display='none';
+        document.getElementById('edit-toolbar').style.display='none';
+        document.getElementById('title-v').innerText = d.title || "无标题";
+        document.getElementById('meta-v').innerText = `${d.mood?d.mood.replace(/,/g,' '):''} · ${d.words} 字`;
+        document.getElementById('content-v').innerHTML = parseMD(d.content);
+    }
+
+    function parseMD(t) {
+        if(!t) return '';
+        return t.replace(/&/g,"&amp;").replace(/</g,"&lt;")
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/__(.*?)__/g, '<u>$1</u>')
+                .replace(/~~(.*?)~~/g, '<del>$1</del>').replace(/^> (.*$)/gm, '<blockquote>$1</blockquote>').replace(/\n/g, '<br>');
+    }
+
+    function insertMD(sym) {
+        editor.focus(); const sel = window.getSelection(); if(!sel.rangeCount) return;
+        const range = sel.getRangeAt(0), txt = range.toString();
+        const ins = sym.endsWith(' ') ? sym + txt : sym + txt + sym;
+        const node = document.createTextNode(ins); range.deleteContents(); range.insertNode(node);
+        const newR = document.createRange(); if(!txt && !sym.endsWith(' ')) newR.setStart(node, sym.length); else newR.setStartAfter(node);
+        sel.removeAllRanges(); sel.addRange(newR); updateWC();
+    }
+
+    function closePage() {
+        const dp = document.getElementById('d-page'); dp.classList.remove('active');
+        setTimeout(() => { dp.style.display = 'none'; sync(); }, 300);
+    }
+
+    function showMoodModal() { renderMoodModal(); document.getElementById('mood-modal').style.display='flex'; }
+    window.openMoodModal = showMoodModal; 
+    function updateMoodDisplay() { document.getElementById('mood-trigger-btn').innerText = activeMoods.length ? activeMoods.join(', ') : '选择心情...'; }
+    function moveMonth(n) { curMonth.setMonth(curMonth.getMonth()+n); sync(); }
+    function goToday() { curMonth = new Date(); sync(); }
+    function doDel() { if(confirm("确定永久删除此灵感吗？")) db.transaction("notes","readwrite").objectStore("notes").delete(curKey).onsuccess=()=>closePage(); }
+    function importJSON(f) { const r = new FileReader(); r.onload=e=>{JSON.parse(e.target.result).forEach(n=>db.transaction("notes","readwrite").objectStore("notes").put(n)); sync(); alert("恢复成功");}; r.readAsText(f.files[0]); }
+    function filterIndex() {
+        const q = document.getElementById('search-input').value.toLowerCase(), list = document.getElementById('index-list');
+        list.innerHTML = ''; if(!q) return;
+        Array.from(dataMap.values()).filter(n=>(n.title+n.content).toLowerCase().includes(q)).slice(0,5).forEach(n=>{
+            const div = document.createElement('div'); div.style="padding:15px; background:var(--card); margin-bottom:5px; border-radius:12px; font-size:13px;";
+            div.innerHTML = `<strong>${n.title||'无标题'}</strong> <span style="opacity:0.4; float:right;">${n.date}</span>`;
+            div.onclick = () => openNote(n.date); list.appendChild(div);
+        });
+    }
+    function goRandom() { const ks = Array.from(dataMap.keys()); if(ks.length) openNote(ks[Math.floor(Math.random()*ks.length)]); }
+</script>
 </body>
 </html>
