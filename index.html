@@ -7,7 +7,6 @@
     <link rel="manifest" href="manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    
     <script src="https://cdn.jsdelivr.net/npm/lunar-javascript/lunar.js"></script>
 
     <style>
@@ -25,42 +24,43 @@
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; outline: none; }
         body { margin: 0; background: var(--bg); font-family: -apple-system, system-ui, sans-serif; color: var(--text); padding-bottom: env(safe-area-inset-bottom); overflow-x: hidden; }
 
-        /* 页面容器：预留顶部安全区 */
+        /* 页面容器 */
         .page { position: fixed; inset: 0; background: var(--bg); z-index: 10; overflow-y: auto; padding-top: env(safe-area-inset-top); }
         
+        /* 物理隔离的日记页 */
         #d-page { 
             display: none; position: absolute; inset: 0; width: 100%; min-height: 100vh; 
             background: var(--bg); z-index: 100; transform: translateX(100%); 
-            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            /* 适配 iOS 安全区 */
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
             padding-top: env(safe-area-inset-top);
         }
         #d-page.active { transform: translateX(0); }
 
-        /* 导航栏方案：Relative 随文档流，绝不遮挡 */
+        /* 1. 修复：Relative 方案，避开状态栏 */
         .static-nav { 
             position: relative; width: 100%; min-height: var(--nav-height); 
             background: var(--bg); border-bottom: 1px solid rgba(0,0,0,0.05); 
             display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; 
         }
-        
-        /* 日历样式微调：解决三个字节日换行问题 */
+
+        /* 2. 修复：日历控制栏对齐 */
+        .cal-header { display: flex; justify-content: space-between; align-items: center; width: 100%; padding: 5px 10px 15px; }
+        .cal-ctrl-group { display: flex; background: var(--mood-bg); padding: 3px; border-radius: 12px; gap: 2px; }
+
         .cal-section { margin: 10px 15px; border-radius: 20px; background: var(--card); padding: 12px; box-shadow: 0 5px 25px rgba(0,0,0,0.03); }
-        .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; }
         .day { height: 56px; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 12px; cursor: pointer; position: relative; }
         .day span:first-child { font-size: 16px; font-weight: 600; }
-        /* 针对三个字节日的关键优化：减小字号并允许微量负间距 */
-        .day .l { font-size: 8.5px; margin-top: 2px; white-space: nowrap; letter-spacing: -0.3px; transform: scale(0.95); }
+        /* 修复：三个字节日在一行显示 */
+        .day .l { font-size: 8.5px; margin-top: 2px; white-space: nowrap; letter-spacing: -0.4px; transform: scale(0.9); }
         .day.recorded { background: var(--mood-bg); }
         .day.is-today { background: var(--primary) !important; color: var(--bg); }
+        .day.recorded::after { content: ''; position: absolute; bottom: 5px; width: 3px; height: 3px; background: var(--accent); border-radius: 50%; }
 
-        /* 通用按钮 */
         .btn-pill { font-size: 13px; font-weight: 600; padding: 8px 18px; border-radius: 18px; border: none; background: var(--mood-bg); color: var(--primary); cursor: pointer; }
         .btn-save { background: var(--primary); color: var(--bg); }
         .icon-btn { background: none; border: none; padding: 8px; display: flex; align-items: center; }
         .icon-btn svg { width: 22px; height: 22px; fill: var(--sub); }
 
-        /* 编辑器 */
         .editor-box { width: 100%; min-height: 55vh; font-size: 17px; line-height: 1.9; color: var(--text); white-space: pre-wrap; outline: none; padding-bottom: 20vh; }
         .editor-box:empty:before { content: attr(placeholder); color: var(--sub); opacity: 0.5; }
 
@@ -78,7 +78,7 @@
 
 <div id="auth-layer">
     <h2 style="font-weight:200; letter-spacing:10px; margin-bottom: 30px;">拾绪</h2>
-    <input type="password" id="pwd-i" placeholder="输入密码" autocomplete="off">
+    <input type="password" id="pwd-i" placeholder="请输入密码" autocomplete="off">
     <button class="btn-pill btn-save" style="padding: 12px 40px;" onclick="checkAuth()">解锁灵感</button>
 </div>
 
@@ -99,7 +99,7 @@
     <div class="cal-section">
         <div class="cal-header">
             <div id="cal-m-label" style="font-weight: 600; font-size: 16px;"></div>
-            <div style="display: flex; background: var(--mood-bg); padding: 3px; border-radius: 12px; gap: 2px;">
+            <div class="cal-ctrl-group">
                 <button class="btn-pill" style="padding: 4px 10px;" onclick="moveMonth(-1)">◀</button>
                 <button class="btn-pill" style="padding: 4px 10px; background: var(--card);" onclick="goToday()">今天</button>
                 <button class="btn-pill" style="padding: 4px 10px;" onclick="moveMonth(1)">▶</button>
@@ -111,7 +111,7 @@
 
     <div style="margin: 10px 15px; padding: 15px 18px; background: var(--card); border-radius: 20px; box-shadow: 0 5px 25px rgba(0,0,0,0.03);">
         <div style="font-size: 11px; font-weight: bold; color: var(--sub); margin-bottom: 12px; display: flex; justify-content: space-between;">
-            <span id="growth-title">灵感足迹</span>
+            <span id="growth-title">加载中...</span>
             <span id="days-count">0 天</span>
         </div>
         <div class="growth-grid" id="growth-grid"></div>
@@ -144,23 +144,12 @@
 
         <div id="e-box" style="display: none;">
             <div onclick="openMoodModal()" id="mood-trigger-btn" style="display: inline-block; padding: 8px 16px; background: var(--mood-bg); border-radius: 20px; font-size: 12px; color: var(--sub); margin-bottom: 15px; cursor: pointer;">选择心情...</div>
-            <input type="text" id="e-title" placeholder="给今天安个标题..." style="width:100%; border:none; background:none; font-size:24px; font-weight:700; margin-bottom:15px; color:var(--text);">
+            <input type="text" id="e-title" placeholder="灵感标题..." style="width:100%; border:none; background:none; font-size:24px; font-weight:700; margin-bottom:15px; color:var(--text);">
             <div id="e-content" contenteditable="true" class="editor-box" placeholder="这一刻的想法..."></div>
             <div style="font-size: 11px; color: var(--sub); font-weight: 700; margin-top: 10px;">
                 字数：<span id="wc-d">0</span> <span id="save-hint" style="margin-left: 10px; opacity: 0.6;"></span>
             </div>
         </div>
-    </div>
-</div>
-
-<div id="mood-modal" class="modal" onclick="this.style.display='none'">
-    <div class="modal-content" onclick="event.stopPropagation()">
-        <div id="mood-grid-main" style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px;"></div>
-        <div style="display:flex; gap:8px;">
-            <input type="text" id="custom-mood-i" placeholder="临时添加自定义标签..." style="flex:1; border:none; background:var(--mood-bg); padding:12px; border-radius:12px; font-size:13px;">
-            <button class="btn-pill btn-save" onclick="addTransientMood()">添加</button>
-        </div>
-        <button class="btn-pill" style="width:100%; margin-top: 25px; padding: 12px;" onclick="document.getElementById('mood-modal').style.display='none'">确定</button>
     </div>
 </div>
 
@@ -170,14 +159,25 @@
         <button class="btn-pill" style="width:100%; margin-bottom:12px; text-align:left; padding: 14px;" onclick="showPwdModal()">修改访问密码 →</button>
         <button class="btn-pill" style="width:100%; margin-bottom:12px; text-align:left; padding: 14px;" onclick="exportJSON()">备份灵感 (Export)</button>
         <button class="btn-pill" style="width:100%; margin-bottom:12px; text-align:left; padding: 14px;" onclick="document.getElementById('file-i').click()">恢复灵感 (Import)</button>
-        <button class="btn-pill" style="width:100%; color:var(--danger); text-align:left; padding: 14px; margin-top: 10px;" onclick="clearAllData()">⚠️ 清空所有本地记录</button>
+        <button class="btn-pill" style="width:100%; color:var(--danger); text-align:left; padding: 14px; margin-top: 10px;" onclick="clearAllData()">⚠️ 清空本地记录</button>
         <input type="file" id="file-i" style="display:none" onchange="importJSON(this)">
+    </div>
+</div>
+
+<div id="mood-modal" class="modal" onclick="this.style.display='none'">
+    <div class="modal-content" onclick="event.stopPropagation()">
+        <div id="mood-grid-main" style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px;"></div>
+        <div style="display:flex; gap:8px;">
+            <input type="text" id="custom-mood-i" placeholder="临时心情标签..." style="flex:1; border:none; background:var(--mood-bg); padding:12px; border-radius:12px; font-size:13px;">
+            <button class="btn-pill btn-save" onclick="addTransientMood()">添加</button>
+        </div>
+        <button class="btn-pill" style="width:100%; margin-top: 25px; padding: 12px;" onclick="document.getElementById('mood-modal').style.display='none'">确定</button>
     </div>
 </div>
 
 <div id="pwd-modal" class="modal" onclick="this.style.display='none'">
     <div class="modal-content" onclick="event.stopPropagation()">
-        <h3 style="font-weight: 300; margin-top: 0; margin-bottom: 20px;">修改访问密码</h3>
+        <h3 style="font-weight: 300; margin-top: 0; margin-bottom: 20px;">安全修改</h3>
         <input type="password" id="old-pwd" style="width:100%; padding:14px; border-radius:12px; border:1px solid var(--mood-bg); margin-bottom:15px;" placeholder="旧密码">
         <input type="password" id="new-pwd" style="width:100%; padding:14px; border-radius:12px; border:1px solid var(--mood-bg); margin-bottom:20px;" placeholder="新密码">
         <button class="btn-pill btn-save" style="width:100%; padding: 14px;" onclick="updatePassword()">确认修改</button>
@@ -186,9 +186,18 @@
 
 <script>
     /**
-     * 1. 核心逻辑与 PWA
+     * 1. 核心状态与 PWA 自动更新
      */
-    if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js'); }
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js').then(reg => {
+            reg.onupdatefound = () => {
+                const worker = reg.installing;
+                worker.onstatechange = () => {
+                    if (worker.state === 'installed' && navigator.serviceWorker.controller) location.reload();
+                };
+            };
+        });
+    }
 
     let db, curMonth = new Date(), curKey = '', dataMap = new Map();
     let isEditState = false, activeMoods = [], autoSaveTimer = null, debounceTimer = null;
@@ -197,12 +206,12 @@
     const MOOD_DEFAULTS = ['💡 灵感', '🚀 动力', '🌈 快乐', '😊 平静', '🌿 成长', '☕ 悠闲', '📝 思考', '🤔 疑惑', '🌑 害怕', '💢 气愤', '😢 低落'];
     const moodFamilies = {'💡 灵感': 'f-energy', '🚀 动力': 'f-energy', '🌈 快乐': 'f-energy', '😊 平静': 'f-healing', '🌿 成长': 'f-healing', '☕ 悠闲': 'f-healing', '📝 思考': 'f-thinking', '🤔 疑惑': 'f-thinking', '🌑 害怕': 'f-fear', '💢 气愤': 'f-release', '😢 低落': 'f-melancholy'};
 
-    // 科学字数统计：汉字+英文单词
+    // 科学统计函数
     function getWordCount(text) {
         if (!text) return 0;
-        const chineseChars = text.match(/[\u4e00-\u9fa5]/g) || [];
-        const englishWords = text.match(/[a-zA-Z]{2,}/g) || [];
-        return chineseChars.length + englishWords.length;
+        const cn = text.match(/[\u4e00-\u9fa5]/g) || [];
+        const en = text.match(/[a-zA-Z]{2,}/g) || [];
+        return cn.length + en.length;
     }
 
     function checkAuth() {
@@ -219,7 +228,7 @@
     }
 
     /**
-     * 2. 数据联动与年份同步
+     * 2. 修复：足迹数据关联逻辑
      */
     async function sync() {
         if(!db) return;
@@ -227,6 +236,7 @@
         const all = await new Promise(r => tx.objectStore("notes").getAll().onsuccess = e => r(e.target.result));
         dataMap.clear();
         let tw = 0, mc = 0, yc = 0;
+        
         const viewYear = curMonth.getFullYear(); 
         const cmPrefix = `${viewYear}/${curMonth.getMonth()+1}/`;
         
@@ -234,7 +244,9 @@
             dataMap.set(n.date, n);
             tw += (n.words || 0);
             if(n.date.startsWith(cmPrefix)) mc++;
-            if(new Date(n.date.replace(/\//g, '-')).getFullYear() === viewYear) yc++;
+            // 修复：强制使用标准横杠解析日期
+            const noteYear = new Date(n.date.replace(/\//g, '-')).getFullYear();
+            if(noteYear === viewYear) yc++;
         });
 
         document.getElementById('s-total').innerText = all.length;
@@ -248,7 +260,7 @@
     }
 
     /**
-     * 3. 视觉渲染逻辑修复
+     * 3. 修复：穿帮与对齐逻辑
      */
     function renderCal() {
         const g = document.getElementById('cal-g'); g.innerHTML = '';
@@ -262,25 +274,22 @@
         for(let d=1; d<=days; d++) {
             const dateObj = new Date(y, m, d);
             const k = `${y}/${m+1}/${d}`;
-            let f = "";
+            let f = "", lunar = "";
             if(typeof Solar !== 'undefined') {
                 const l = Solar.fromDate(dateObj).getLunar();
                 f = l.getFestivals()[0] || l.getJieQi() || "";
                 if (f === "龙头节") f = "龙抬头"; 
+                lunar = l.getDayInChinese();
             }
             const el = document.createElement('div');
             const todayK = `${new Date().getFullYear()}/${new Date().getMonth()+1}/${new Date().getDate()}`;
             el.className = `day ${k === todayK ? 'is-today' : ''} ${dataMap.has(k) ? 'recorded' : ''}`;
-            // 这里应用了修复节日换行的 CSS 样式
-            el.innerHTML = `<span>${d}</span><span class="l" style="color:${f ? 'var(--danger)' : 'var(--sub)'}">${f || Solar.fromDate(dateObj).getLunar().getDayInChinese()}</span>`;
+            el.innerHTML = `<span>${d}</span><span class="l" style="color:${f ? 'var(--danger)' : 'var(--sub)'}">${f || lunar}</span>`;
             el.onclick = () => openNote(k);
             g.appendChild(el);
         }
     }
 
-    /**
-     * 4. 关键：防止页面穿帮切换逻辑
-     */
     function openNote(k) {
         curKey = k; const d = dataMap.get(k);
         const dp = document.getElementById('d-page');
@@ -288,10 +297,10 @@
         const p = k.split('/');
         document.getElementById('d-date-title').innerText = `${p[0]} . ${p[1]} . ${p[2]}`;
         
-        dp.style.display = 'block'; // 先显示
+        dp.style.display = 'block';
         requestAnimationFrame(() => {
-            dp.classList.add('active'); // 开启动画
-            // 动画结束后物理隐藏首页，防止滑动穿帮
+            dp.classList.add('active');
+            // 修复滑动穿帮：动画完成后物理隐藏首页
             setTimeout(() => { hp.style.display = 'none'; window.scrollTo(0,0); }, 300);
         });
         d ? showView(d) : enterEdit();
@@ -300,28 +309,59 @@
     function closePage() {
         const dp = document.getElementById('d-page');
         const hp = document.getElementById('h-page');
-        hp.style.display = 'block'; // 先恢复首页
+        hp.style.display = 'block'; // 先恢复显示
         requestAnimationFrame(() => {
-            dp.classList.remove('active'); // 开始退出动画
-            // 动画结束后隐藏详情页
+            dp.classList.remove('active');
+            // 退出后隐藏详情
             setTimeout(() => { dp.style.display = 'none'; sync(); }, 300);
         });
     }
 
     /**
-     * 5. 编辑器与搜索增强
+     * 4. 修复：热力图着色逻辑
+     */
+    function renderGrowth(all, year) {
+        const grid = document.getElementById('growth-grid'); grid.innerHTML = '';
+        all.filter(n => new Date(n.date.replace(/\//g, '-')).getFullYear() === year)
+           .sort((a,b) => new Date(a.date.replace(/\//g, '-')) - new Date(b.date.replace(/\//g, '-')))
+           .forEach(n => {
+               const cell = document.createElement('div');
+               const family = moodFamilies[n.mood.split(',')[0]] || 'f-custom';
+               const lv = n.words > 300 ? 'lv-3' : (n.words > 100 ? 'lv-2' : 'lv-1');
+               cell.className = `growth-cell ${family} ${lv}`;
+               // 动态获取 RGB
+               const colorMap = {'f-energy':'var(--energy)','f-healing':'var(--healing)','f-thinking':'var(--thinking)','f-release':'var(--release)','f-melancholy':'var(--melancholy)','f-fear':'var(--fear)','f-custom':'var(--custom)'};
+               const rgb = getRGB(colorMap[family] || 'var(--mood-bg)');
+               cell.style.backgroundColor = `rgba(${rgb}, ${lv==='lv-3'?1:lv==='lv-2'?0.6:0.3})`;
+               grid.appendChild(cell);
+           });
+    }
+
+    /**
+     * 5. 其他组件逻辑补全
      */
     const editor = document.getElementById('e-content');
     editor.addEventListener('input', () => {
         const text = editor.innerText.trim();
-        if (text === "") editor.innerHTML = ""; // 修复占位符 Bug
+        if (text === "") editor.innerHTML = ""; 
         document.getElementById('wc-d').innerText = getWordCount(text);
         clearTimeout(autoSaveTimer);
         autoSaveTimer = setTimeout(() => isEditState && save(false), 2000);
     });
 
+    function save(manual) {
+        const c = editor.innerText;
+        const d = { date: curKey, title: document.getElementById('e-title').value, content: c, mood: activeMoods.join(','), words: getWordCount(c) };
+        db.transaction("notes", "readwrite").objectStore("notes").put(d).onsuccess = () => {
+            if(manual) showView(d);
+            const hint = document.getElementById('save-hint');
+            hint.innerText = "已自动保存 " + new Date().toLocaleTimeString().slice(0,5);
+            setTimeout(() => hint.innerText = "", 2000);
+        };
+    }
+
     function filterIndex() {
-        clearTimeout(debounceTimer); // 搜索防抖
+        clearTimeout(debounceTimer);
         debounceTimer = setTimeout(() => {
             const q = document.getElementById('search-input').value.toLowerCase();
             const list = document.getElementById('index-list');
@@ -334,18 +374,7 @@
         }, 300);
     }
 
-    // 辅助功能还原
-    function save(manual) {
-        const c = editor.innerText;
-        const d = { date: curKey, title: document.getElementById('e-title').value, content: c, mood: activeMoods.join(','), words: getWordCount(c) };
-        db.transaction("notes", "readwrite").objectStore("notes").put(d).onsuccess = () => {
-            if(manual) showView(d);
-            const hint = document.getElementById('save-hint');
-            hint.innerText = "已存 " + new Date().toLocaleTimeString().slice(0,5);
-            setTimeout(() => hint.innerText = "", 2000);
-        };
-    }
-
+    // 设置与辅助
     function renderMoodModal() {
         const container = document.getElementById('mood-grid-main');
         container.innerHTML = '';
@@ -363,32 +392,24 @@
         });
     }
 
-    function exportJSON() {
-        db.transaction("notes").objectStore("notes").getAll().onsuccess = e => {
-            const fileName = `ShiXu_Backup_${new Date().toISOString().split('T')[0]}.json`;
-            const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(e.target.result)], {type:'application/json'})); a.download = fileName; a.click();
-        };
-    }
-
-    // 常用逻辑补全
-    function addTransientMood() { const v = document.getElementById('custom-mood-i').value.trim(); if(v) { activeMoods.push(v); document.getElementById('custom-mood-i').value=''; updateMoodDisplay(); renderMoodModal(); save(false); } }
+    function getRGB(v) { return getComputedStyle(document.documentElement).getPropertyValue(v.slice(4,-1)).trim(); }
     function moveMonth(n) { curMonth.setMonth(curMonth.getMonth()+n); sync(); }
     function goToday() { curMonth = new Date(); sync(); }
+    function openMoodModal() { renderMoodModal(); document.getElementById('mood-modal').style.display='flex'; }
+    function updateMoodDisplay() { document.getElementById('mood-trigger-btn').innerText = activeMoods.length ? activeMoods.join(', ') : '选择心情...'; }
     function showPwdModal() { document.getElementById('pwd-modal').style.display='flex'; document.getElementById('settings-modal').style.display='none'; }
-    function updatePassword() { const oldV = document.getElementById('old-pwd').value, newV = document.getElementById('new-pwd').value; if(btoa(oldV) === localStorage.getItem(PWD_KEY)) { localStorage.setItem(PWD_KEY, btoa(newV)); alert("修改成功"); document.getElementById('pwd-modal').style.display='none'; } else alert("密码验证失败"); }
-    function clearAllData() { if(confirm("清空全部本地数据？")) db.transaction("notes","readwrite").objectStore("notes").clear().onsuccess=()=>location.reload(); }
-    function getRGB(v) { return v.startsWith('var') ? getComputedStyle(document.documentElement).getPropertyValue(v.slice(4,-1)).trim() : "200,200,200"; }
-    function renderGrowth(all, year) {
-        const grid = document.getElementById('growth-grid'); grid.innerHTML = '';
-        all.filter(n => new Date(n.date.replace(/\//g, '-')).getFullYear() === year).sort((a,b) => new Date(a.date.replace(/\//g, '-')) - new Date(b.date.replace(/\//g, '-'))).forEach(n => {
-            const cell = document.createElement('div');
-            const family = moodFamilies[n.mood.split(',')[0]] || 'f-custom';
-            const lv = n.words > 300 ? 'lv-3' : (n.words > 100 ? 'lv-2' : 'lv-1');
-            cell.className = `growth-cell ${family} ${lv}`;
-            const colors = {'f-energy':'var(--energy)','f-healing':'var(--healing)','f-thinking':'var(--thinking)','f-release':'var(--release)','f-melancholy':'var(--melancholy)','f-fear':'var(--fear)','f-custom':'var(--custom)'};
-            cell.style.backgroundColor = `rgba(${getRGB(colors[family]||'#ccc')}, ${lv==='lv-3'?1:lv==='lv-2'?0.6:0.3})`;
-            grid.appendChild(cell);
-        });
+    function updatePassword() { const oldV = document.getElementById('old-pwd').value, newV = document.getElementById('new-pwd').value; if(btoa(oldV) === localStorage.getItem(PWD_KEY)) { localStorage.setItem(PWD_KEY, btoa(newV)); alert("修改成功"); document.getElementById('pwd-modal').style.display='none'; } else alert("密码错误"); }
+    function clearAllData() { if(confirm("确认清空数据？")) db.transaction("notes","readwrite").objectStore("notes").clear().onsuccess=()=>location.reload(); }
+    function exportJSON() { db.transaction("notes").objectStore("notes").getAll().onsuccess = e => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(e.target.result)], {type:'application/json'})); a.download = `ShiXu_Backup_${new Date().toISOString().split('T')[0]}.json`; a.click(); }; }
+    function importJSON(f) { const r = new FileReader(); r.onload=e=>{JSON.parse(e.target.result).forEach(n=>db.transaction("notes","readwrite").objectStore("notes").put(n)); sync(); alert("恢复成功");}; r.readAsText(f.files[0]); }
+    function goRandom() { const ks = Array.from(dataMap.keys()); if(ks.length) openNote(ks[Math.floor(Math.random()*ks.length)]); }
+    function doDel() { if(confirm("永久删除？")) db.transaction("notes","readwrite").objectStore("notes").delete(curKey).onsuccess=()=>closePage(); }
+    function showView(d) {
+        isEditState = false; document.getElementById('v-box').style.display='block'; document.getElementById('e-box').style.display='none';
+        document.getElementById('v-tools').style.display='flex'; document.getElementById('e-tools').style.display='none';
+        document.getElementById('title-v').innerText = d.title || "无标题";
+        document.getElementById('meta-v').innerText = `${d.mood?d.mood.replace(/,/g,' '):''} · ${d.words} 字`;
+        document.getElementById('content-v').innerText = d.content;
     }
     function enterEdit() {
         isEditState = true; const d = dataMap.get(curKey);
@@ -398,18 +419,7 @@
         activeMoods = d && d.mood ? d.mood.split(',') : []; updateMoodDisplay(); 
         document.getElementById('wc-d').innerText = getWordCount(editor.innerText);
     }
-    function showView(d) {
-        isEditState = false; document.getElementById('v-box').style.display='block'; document.getElementById('e-box').style.display='none';
-        document.getElementById('v-tools').style.display='flex'; document.getElementById('e-tools').style.display='none';
-        document.getElementById('title-v').innerText = d.title || "无标题";
-        document.getElementById('meta-v').innerText = `${d.mood?d.mood.replace(/,/g,' '):''} · ${d.words} 字`;
-        document.getElementById('content-v').innerText = d.content;
-    }
-    function updateMoodDisplay() { document.getElementById('mood-trigger-btn').innerText = activeMoods.length ? activeMoods.join(', ') : '选择心情...'; }
-    function openMoodModal() { renderMoodModal(); document.getElementById('mood-modal').style.display='flex'; }
-    function doDel() { if(confirm("确定永久删除吗？")) db.transaction("notes","readwrite").objectStore("notes").delete(curKey).onsuccess=()=>closePage(); }
-    function importJSON(f) { const r = new FileReader(); r.onload=e=>{JSON.parse(e.target.result).forEach(n=>db.transaction("notes","readwrite").objectStore("notes").put(n)); sync(); alert("恢复成功");}; r.readAsText(f.files[0]); }
-    function goRandom() { const ks = Array.from(dataMap.keys()); if(ks.length) openNote(ks[Math.floor(Math.random()*ks.length)]); }
+    function addTransientMood() { const v = document.getElementById('custom-mood-i').value.trim(); if(v) { activeMoods.push(v); document.getElementById('custom-mood-i').value=''; updateMoodDisplay(); renderMoodModal(); save(false); } }
 </script>
 </body>
 </html>
