@@ -33,7 +33,7 @@
         .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); padding: 0 8px; gap: 1px; }
         .day { height: 56px; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 12px; cursor: pointer; position: relative; }
         .day span:first-child { font-size: 16px; font-weight: 600; }
-        .day .l { font-size: 9px; margin-top: 2px; white-space: nowrap; letter-spacing: -0.2px; transform: scale(0.9); }
+        .day .l { font-size: 10px; margin-top: 2px; white-space: nowrap; letter-spacing: -0.2px; transform: scale(0.9); }
         .day.recorded { background: var(--mood-bg); }
         .day.is-today { background: var(--primary) !important; color: var(--bg); }
         .day.recorded::after { content: ''; position: absolute; bottom: 5px; width: 3px; height: 3px; background: var(--accent); border-radius: 50%; }
@@ -119,7 +119,7 @@
         </div>
         <div id="e-box" style="display: none;">
             <div onclick="openMoodModal()" id="mood-trigger-btn" style="display: inline-block; padding: 8px 16px; background: var(--mood-bg); border-radius: 20px; font-size: 12px; color: var(--sub); margin-bottom: 15px; cursor: pointer;">选择心情...</div>
-            <input type="text" id="e-title" placeholder="给今天安个标题..." style="width:100%; border:none; background:none; font-size:24px; font-weight:700; margin-bottom:15px; color:var(--text);">
+            <input type="text" id="e-title" placeholder="为今天命名..." style="width:100%; border:none; background:none; font-size:24px; font-weight:700; margin-bottom:15px; color:var(--text);">
             <div id="e-content" contenteditable="true" class="editor-box" placeholder="此刻的想法..."></div>
             <div style="font-size: 11px; color: var(--sub); font-weight: 700; margin-top: 10px;">
                 字数：<span id="wc-d">0</span> <span id="save-hint" style="margin-left: 10px; opacity: 0.6;"></span>
@@ -133,7 +133,7 @@
         <h3 style="font-weight: 300; margin-top: 0; margin-bottom: 20px;">系统设置</h3>
         <button class="btn-pill" style="width:100%; margin-bottom:12px; text-align:left; padding: 14px;" onclick="showPwdModal()">修改访问密码 →</button>
         <button class="btn-pill" style="width:100%; margin-bottom:12px; text-align:left; padding: 14px;" onclick="exportJSON()">备份所有灵感 (Export)</button>
-        <button class="btn-pill" style="width:100%; margin-bottom:12px; text-align:left; padding: 14px;" onclick="document.getElementById('file-i').click()">恢复备份文件 (Import)</button>
+        <button class="btn-pill" style="width:100%; margin-bottom:12px; text-align:left; padding: 14px;" onclick="document.getElementById('file-i').click()">恢复所有灵感 (Import)</button>
         <button class="btn-pill" style="width:100%; color:var(--danger); text-align:left; padding: 14px; margin-top: 10px;" onclick="clearAllData()">⚠️ 清空所有本地记录</button>
         <input type="file" id="file-i" style="display:none" onchange="importJSON(this)">
     </div>
