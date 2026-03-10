@@ -10,10 +10,11 @@
     <script src="https://cdn.jsdelivr.net/npm/lunar-javascript/lunar.js"></script>
 
     <style>
+        /* 完整还原原版视觉变量与基础重置 */
         :root { 
             --primary: #2c3e50; --accent: #d4af37; --bg: #f8f9fa; --card: #ffffff; --text: #2c3e50; 
             --danger: #e74c3c; --sub: #525c68; --mood-bg: #e9ecef;
-            --nav-height: 60px;
+            --nav-height: 56px;
             --energy: 243, 156, 18; --healing: 39, 174, 96; --thinking: 41, 128, 185;
             --release: 231, 76, 60; --melancholy: 52, 73, 94; --fear: 26, 26, 26; --custom: 142, 68, 173;
         }
@@ -22,12 +23,11 @@
         }
 
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; outline: none; }
-        body { margin: 0; background: var(--bg); font-family: -apple-system, system-ui, sans-serif; color: var(--text); padding-bottom: env(safe-area-inset-bottom); overflow-x: hidden; }
+        html, body { height: 100%; width: 100%; margin: 0; padding: 0; background: var(--bg); font-family: -apple-system, system-ui, sans-serif; color: var(--text); overflow-x: hidden; }
 
-        /* 页面容器 */
+        /* 还原原版页面架构 */
         .page { position: fixed; inset: 0; background: var(--bg); z-index: 10; overflow-y: auto; padding-top: env(safe-area-inset-top); }
         
-        /* 物理隔离的日记页 */
         #d-page { 
             display: none; position: absolute; inset: 0; width: 100%; min-height: 100vh; 
             background: var(--bg); z-index: 100; transform: translateX(100%); 
@@ -36,40 +36,41 @@
         }
         #d-page.active { transform: translateX(0); }
 
-        /* 1. 修复：Relative 方案，避开状态栏 */
+        /* 坚决采用 relative 导航，绝不遮挡按钮 */
         .static-nav { 
             position: relative; width: 100%; min-height: var(--nav-height); 
             background: var(--bg); border-bottom: 1px solid rgba(0,0,0,0.05); 
             display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; 
         }
 
-        /* 2. 修复：日历控制栏对齐 */
-        .cal-header { display: flex; justify-content: space-between; align-items: center; width: 100%; padding: 5px 10px 15px; }
-        .cal-ctrl-group { display: flex; background: var(--mood-bg); padding: 3px; border-radius: 12px; gap: 2px; }
-
-        .cal-section { margin: 10px 15px; border-radius: 20px; background: var(--card); padding: 12px; box-shadow: 0 5px 25px rgba(0,0,0,0.03); }
+        /* 完整还原原版日历样式，修复直线 Bug */
+        .cal-section { margin: 8px 15px; border-radius: 20px; background: var(--card); padding-bottom: 8px; box-shadow: 0 5px 25px rgba(0,0,0,0.03); }
+        .cal-header { display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; }
+        .cal-ctrl { display: flex; background: var(--mood-bg); padding: 3px; border-radius: 18px; gap: 2px; }
+        /* 关键：修复 7 列栅格 */
+        .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); padding: 0 8px; gap: 1px; }
         .day { height: 56px; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 12px; cursor: pointer; position: relative; }
         .day span:first-child { font-size: 16px; font-weight: 600; }
-        /* 修复：三个字节日在一行显示 */
-        .day .l { font-size: 8.5px; margin-top: 2px; white-space: nowrap; letter-spacing: -0.4px; transform: scale(0.9); }
+        /* 针对三个字节日的极致压缩 */
+        .day .l { font-size: 8px; margin-top: 2px; white-space: nowrap; letter-spacing: -0.6px; transform: scale(0.85); }
         .day.recorded { background: var(--mood-bg); }
         .day.is-today { background: var(--primary) !important; color: var(--bg); }
         .day.recorded::after { content: ''; position: absolute; bottom: 5px; width: 3px; height: 3px; background: var(--accent); border-radius: 50%; }
 
-        .btn-pill { font-size: 13px; font-weight: 600; padding: 8px 18px; border-radius: 18px; border: none; background: var(--mood-bg); color: var(--primary); cursor: pointer; }
+        /* 统一组件样式 */
+        .btn-pill { font-size: 13px; font-weight: 600; padding: 8px 20px; border-radius: 18px; border: none; background: var(--mood-bg); color: var(--primary); cursor: pointer; }
         .btn-save { background: var(--primary); color: var(--bg); }
-        .icon-btn { background: none; border: none; padding: 8px; display: flex; align-items: center; }
+        .icon-btn { background: none; border: none; padding: 8px; display: flex; align-items: center; justify-content: center; }
         .icon-btn svg { width: 22px; height: 22px; fill: var(--sub); }
 
-        .editor-box { width: 100%; min-height: 55vh; font-size: 17px; line-height: 1.9; color: var(--text); white-space: pre-wrap; outline: none; padding-bottom: 20vh; }
+        .editor-box { width: 100%; min-height: 50vh; font-size: 17px; line-height: 1.9; color: var(--text); white-space: pre-wrap; outline: none; padding-bottom: 20vh; }
         .editor-box:empty:before { content: attr(placeholder); color: var(--sub); opacity: 0.5; }
 
+        /* 优化：按年统计足迹 */
+        .box-header { font-size: 11px; font-weight: 700; margin: 0 0 12px; color: var(--sub); display: flex; justify-content: space-between; }
         .growth-grid { display: flex; flex-wrap: wrap; gap: 4px; }
-        .growth-cell { width: 11px; height: 11px; border-radius: 2px; background: var(--mood-bg); }
+        .growth-cell { width: 11px; height: 11px; border-radius: 2px; background: var(--mood-bg); transition: 0.3s; }
 
-        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(8px); z-index: 300; display: none; align-items: flex-end; }
-        .modal-content { background: var(--card); width: 100%; border-radius: 25px 25px 0 0; padding: 25px; max-height: 85vh; overflow-y: auto; padding-bottom: calc(25px + env(safe-area-inset-bottom)); }
-        
         #auth-layer { position:fixed; inset:0; background:var(--bg); z-index:400; display:flex; flex-direction:column; align-items:center; justify-content:center; }
         #pwd-i { padding:15px; border:none; background:var(--mood-bg); color:var(--text); border-radius:20px; margin-bottom:20px; text-align:center; font-size: 24px; width:220px; }
     </style>
@@ -78,7 +79,7 @@
 
 <div id="auth-layer">
     <h2 style="font-weight:200; letter-spacing:10px; margin-bottom: 30px;">拾绪</h2>
-    <input type="password" id="pwd-i" placeholder="请输入密码" autocomplete="off">
+    <input type="password" id="pwd-i" placeholder="解锁密码" autocomplete="off">
     <button class="btn-pill btn-save" style="padding: 12px 40px;" onclick="checkAuth()">解锁灵感</button>
 </div>
 
@@ -93,16 +94,18 @@
     <div style="display: flex; gap: 20px; padding: 0 25px; margin-bottom: 10px;">
         <div><span style="font-size: 9px; color: var(--sub); opacity: 0.6; display: block;">累计</span><span id="s-total" style="font-size: 18px; font-weight: bold;">0</span></div>
         <div><span style="font-size: 9px; color: var(--sub); opacity: 0.6; display: block;">本月</span><span id="s-month" style="font-size: 18px; font-weight: bold;">0</span></div>
-        <div><span style="font-size: 9px; color: var(--sub); opacity: 0.6; display: block;">字数</span><span id="s-words" style="font-size: 18px; font-weight: bold;">0</span></div>
+        <div><span style="font-size: 9px; color: var(--sub); opacity: 0.6; display: block;">字数统计</span><span id="s-words" style="font-size: 18px; font-weight: bold;">0</span></div>
     </div>
 
     <div class="cal-section">
         <div class="cal-header">
             <div id="cal-m-label" style="font-weight: 600; font-size: 16px;"></div>
-            <div class="cal-ctrl-group">
-                <button class="btn-pill" style="padding: 4px 10px;" onclick="moveMonth(-1)">◀</button>
-                <button class="btn-pill" style="padding: 4px 10px; background: var(--card);" onclick="goToday()">今天</button>
-                <button class="btn-pill" style="padding: 4px 10px;" onclick="moveMonth(1)">▶</button>
+            <div class="cal-ctrl">
+                <div class="cal-ctrl" style="background: var(--mood-bg); padding: 3px; border-radius: 18px; gap: 2px;">
+                    <button class="cal-btn" style="background:none; border:none; padding: 5px 12px; font-size:12px; cursor:pointer;" onclick="moveMonth(-1)">◀</button>
+                    <button class="cal-btn" style="background:var(--card); border:none; padding: 5px 12px; font-size:12px; border-radius:15px; cursor:pointer; color:var(--accent);" onclick="goToday()">今天</button>
+                    <button class="cal-btn" style="background:none; border:none; padding: 5px 12px; font-size:12px; cursor:pointer;" onclick="moveMonth(1)">▶</button>
+                </div>
             </div>
         </div>
         <div style="display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-size: 10px; color: var(--sub); margin-bottom: 8px; font-weight: bold;"><div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div><div>日</div></div>
@@ -110,24 +113,24 @@
     </div>
 
     <div style="margin: 10px 15px; padding: 15px 18px; background: var(--card); border-radius: 20px; box-shadow: 0 5px 25px rgba(0,0,0,0.03);">
-        <div style="font-size: 11px; font-weight: bold; color: var(--sub); margin-bottom: 12px; display: flex; justify-content: space-between;">
-            <span id="growth-title">加载中...</span>
+        <div class="box-header">
+            <span id="growth-title">灵感足迹</span>
             <span id="days-count">0 天</span>
         </div>
         <div class="growth-grid" id="growth-grid"></div>
     </div>
 
     <div style="margin: 10px 15px;">
-        <input type="text" id="search-input" placeholder="搜索关键词..." oninput="filterIndex()" style="width: 100%; padding: 15px; border-radius: 15px; border: none; background: var(--card); font-size: 14px;">
+        <input type="text" id="search-input" placeholder="搜索你的闪念..." oninput="filterIndex()" style="width: 100%; padding: 15px; border-radius: 15px; border: none; background: var(--card); font-size: 14px;">
         <div id="index-list" style="margin-top:10px;"></div>
-        <button class="btn-pill btn-save" style="width: 100%; margin-top: 15px; padding: 15px;" onclick="goRandom()">✨ 随机漫步旧时光</button>
+        <button class="btn-pill btn-save" style="width: 100%; margin-top: 15px; padding: 15px; border-radius: 14px;" onclick="goRandom()">✨ 随机漫步旧时光</button>
     </div>
 </div>
 
 <div id="d-page">
     <div class="static-nav">
         <button class="btn-pill" onclick="closePage()">返回</button>
-        <span id="d-date-title" style="font-size: 15px; font-weight: 700; letter-spacing: 1px;"></span>
+        <span id="d-date-title" style="font-size: 15px; font-weight: 700;"></span>
         <div id="v-tools" style="display: flex; gap: 8px;">
             <button class="icon-btn" onclick="doDel()"><svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg></button>
             <button class="btn-pill btn-save" onclick="enterEdit()">编辑</button>
@@ -137,15 +140,15 @@
 
     <div style="max-width: 650px; margin: 0 auto; padding: 20px 25px;">
         <div id="v-box">
-            <h2 id="title-v" style="margin-top: 0; font-size: 28px;"></h2>
+            <h2 id="title-v" style="margin-top: 0; font-size: 28px; line-height: 1.3;"></h2>
             <div id="meta-v" style="font-size: 11px; color: var(--sub); margin-bottom: 25px; border-left: 3px solid var(--accent); padding-left: 10px;"></div>
-            <div id="content-v" style="font-size: 17px; line-height: 1.9; color: var(--sub); white-space: pre-wrap;"></div>
+            <div id="content-v" style="font-size: 17px; line-height: 1.9; color: var(--sub); white-space: pre-wrap; word-break: break-word;"></div>
         </div>
 
         <div id="e-box" style="display: none;">
             <div onclick="openMoodModal()" id="mood-trigger-btn" style="display: inline-block; padding: 8px 16px; background: var(--mood-bg); border-radius: 20px; font-size: 12px; color: var(--sub); margin-bottom: 15px; cursor: pointer;">选择心情...</div>
-            <input type="text" id="e-title" placeholder="灵感标题..." style="width:100%; border:none; background:none; font-size:24px; font-weight:700; margin-bottom:15px; color:var(--text);">
-            <div id="e-content" contenteditable="true" class="editor-box" placeholder="这一刻的想法..."></div>
+            <input type="text" id="e-title" placeholder="给今天安个标题..." style="width:100%; border:none; background:none; font-size:24px; font-weight:700; margin-bottom:15px; color:var(--text);">
+            <div id="e-content" contenteditable="true" class="editor-box" placeholder="此刻的想法..."></div>
             <div style="font-size: 11px; color: var(--sub); font-weight: 700; margin-top: 10px;">
                 字数：<span id="wc-d">0</span> <span id="save-hint" style="margin-left: 10px; opacity: 0.6;"></span>
             </div>
@@ -158,17 +161,17 @@
         <h3 style="font-weight: 300; margin-top: 0; margin-bottom: 20px;">系统设置</h3>
         <button class="btn-pill" style="width:100%; margin-bottom:12px; text-align:left; padding: 14px;" onclick="showPwdModal()">修改访问密码 →</button>
         <button class="btn-pill" style="width:100%; margin-bottom:12px; text-align:left; padding: 14px;" onclick="exportJSON()">备份灵感 (Export)</button>
-        <button class="btn-pill" style="width:100%; margin-bottom:12px; text-align:left; padding: 14px;" onclick="document.getElementById('file-i').click()">恢复灵感 (Import)</button>
-        <button class="btn-pill" style="width:100%; color:var(--danger); text-align:left; padding: 14px; margin-top: 10px;" onclick="clearAllData()">⚠️ 清空本地记录</button>
+        <button class="btn-pill" style="width:100%; margin-bottom:12px; text-align:left; padding: 14px;" onclick="document.getElementById('file-i').click()">恢复备份 (Import)</button>
+        <button class="btn-pill" style="width:100%; color:var(--danger); text-align:left; padding: 14px; margin-top: 10px;" onclick="clearAllData()">⚠️ 清空所有本地记录</button>
         <input type="file" id="file-i" style="display:none" onchange="importJSON(this)">
     </div>
 </div>
 
 <div id="mood-modal" class="modal" onclick="this.style.display='none'">
     <div class="modal-content" onclick="event.stopPropagation()">
-        <div id="mood-grid-main" style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px;"></div>
+        <div id="mood-grid-main" style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; justify-content: center;"></div>
         <div style="display:flex; gap:8px;">
-            <input type="text" id="custom-mood-i" placeholder="临时心情标签..." style="flex:1; border:none; background:var(--mood-bg); padding:12px; border-radius:12px; font-size:13px;">
+            <input type="text" id="custom-mood-i" placeholder="临时标签..." style="flex:1; border:none; background:var(--mood-bg); padding:12px; border-radius:12px; font-size:13px;">
             <button class="btn-pill btn-save" onclick="addTransientMood()">添加</button>
         </div>
         <button class="btn-pill" style="width:100%; margin-top: 25px; padding: 12px;" onclick="document.getElementById('mood-modal').style.display='none'">确定</button>
@@ -185,16 +188,12 @@
 </div>
 
 <script>
-    /**
-     * 1. 核心状态与 PWA 自动更新
-     */
+    /** PWA 自动更新逻辑 */
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('sw.js').then(reg => {
             reg.onupdatefound = () => {
                 const worker = reg.installing;
-                worker.onstatechange = () => {
-                    if (worker.state === 'installed' && navigator.serviceWorker.controller) location.reload();
-                };
+                worker.onstatechange = () => { if (worker.state === 'installed' && navigator.serviceWorker.controller) location.reload(); };
             };
         });
     }
@@ -206,7 +205,7 @@
     const MOOD_DEFAULTS = ['💡 灵感', '🚀 动力', '🌈 快乐', '😊 平静', '🌿 成长', '☕ 悠闲', '📝 思考', '🤔 疑惑', '🌑 害怕', '💢 气愤', '😢 低落'];
     const moodFamilies = {'💡 灵感': 'f-energy', '🚀 动力': 'f-energy', '🌈 快乐': 'f-energy', '😊 平静': 'f-healing', '🌿 成长': 'f-healing', '☕ 悠闲': 'f-healing', '📝 思考': 'f-thinking', '🤔 疑惑': 'f-thinking', '🌑 害怕': 'f-fear', '💢 气愤': 'f-release', '😢 低落': 'f-melancholy'};
 
-    // 科学统计函数
+    // 科学统计字数
     function getWordCount(text) {
         if (!text) return 0;
         const cn = text.match(/[\u4e00-\u9fa5]/g) || [];
@@ -227,16 +226,13 @@
         req.onsuccess = e => { db = e.target.result; sync(); };
     }
 
-    /**
-     * 2. 修复：足迹数据关联逻辑
-     */
+    /** 修复足迹关联逻辑与显色 */
     async function sync() {
         if(!db) return;
         const tx = db.transaction("notes", "readonly");
         const all = await new Promise(r => tx.objectStore("notes").getAll().onsuccess = e => r(e.target.result));
         dataMap.clear();
         let tw = 0, mc = 0, yc = 0;
-        
         const viewYear = curMonth.getFullYear(); 
         const cmPrefix = `${viewYear}/${curMonth.getMonth()+1}/`;
         
@@ -244,7 +240,6 @@
             dataMap.set(n.date, n);
             tw += (n.words || 0);
             if(n.date.startsWith(cmPrefix)) mc++;
-            // 修复：强制使用标准横杠解析日期
             const noteYear = new Date(n.date.replace(/\//g, '-')).getFullYear();
             if(noteYear === viewYear) yc++;
         });
@@ -259,9 +254,7 @@
         renderGrowth(all, viewYear);
     }
 
-    /**
-     * 3. 修复：穿帮与对齐逻辑
-     */
+    /** 视觉还原：修复栅格与节日显示 */
     function renderCal() {
         const g = document.getElementById('cal-g'); g.innerHTML = '';
         const y = curMonth.getFullYear(), m = curMonth.getMonth();
@@ -290,36 +283,30 @@
         }
     }
 
+    /** 修复穿帮切换逻辑 */
     function openNote(k) {
         curKey = k; const d = dataMap.get(k);
-        const dp = document.getElementById('d-page');
-        const hp = document.getElementById('h-page');
+        const dp = document.getElementById('d-page'), hp = document.getElementById('h-page');
         const p = k.split('/');
         document.getElementById('d-date-title').innerText = `${p[0]} . ${p[1]} . ${p[2]}`;
         
         dp.style.display = 'block';
         requestAnimationFrame(() => {
             dp.classList.add('active');
-            // 修复滑动穿帮：动画完成后物理隐藏首页
             setTimeout(() => { hp.style.display = 'none'; window.scrollTo(0,0); }, 300);
         });
         d ? showView(d) : enterEdit();
     }
 
     function closePage() {
-        const dp = document.getElementById('d-page');
-        const hp = document.getElementById('h-page');
-        hp.style.display = 'block'; // 先恢复显示
+        const dp = document.getElementById('d-page'), hp = document.getElementById('h-page');
+        hp.style.display = 'block';
         requestAnimationFrame(() => {
             dp.classList.remove('active');
-            // 退出后隐藏详情
             setTimeout(() => { dp.style.display = 'none'; sync(); }, 300);
         });
     }
 
-    /**
-     * 4. 修复：热力图着色逻辑
-     */
     function renderGrowth(all, year) {
         const grid = document.getElementById('growth-grid'); grid.innerHTML = '';
         all.filter(n => new Date(n.date.replace(/\//g, '-')).getFullYear() === year)
@@ -329,17 +316,13 @@
                const family = moodFamilies[n.mood.split(',')[0]] || 'f-custom';
                const lv = n.words > 300 ? 'lv-3' : (n.words > 100 ? 'lv-2' : 'lv-1');
                cell.className = `growth-cell ${family} ${lv}`;
-               // 动态获取 RGB
                const colorMap = {'f-energy':'var(--energy)','f-healing':'var(--healing)','f-thinking':'var(--thinking)','f-release':'var(--release)','f-melancholy':'var(--melancholy)','f-fear':'var(--fear)','f-custom':'var(--custom)'};
-               const rgb = getRGB(colorMap[family] || 'var(--mood-bg)');
+               const rgb = getComputedStyle(document.documentElement).getPropertyValue(colorMap[family].slice(4,-1)).trim();
                cell.style.backgroundColor = `rgba(${rgb}, ${lv==='lv-3'?1:lv==='lv-2'?0.6:0.3})`;
                grid.appendChild(cell);
            });
     }
 
-    /**
-     * 5. 其他组件逻辑补全
-     */
     const editor = document.getElementById('e-content');
     editor.addEventListener('input', () => {
         const text = editor.innerText.trim();
@@ -349,6 +332,20 @@
         autoSaveTimer = setTimeout(() => isEditState && save(false), 2000);
     });
 
+    function filterIndex() {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+            const q = document.getElementById('search-input').value.toLowerCase(), list = document.getElementById('index-list');
+            list.innerHTML = ''; if(!q) return;
+            Array.from(dataMap.values()).filter(n=>(n.title+n.content).toLowerCase().includes(q)).slice(0,5).forEach(n=>{
+                const div = document.createElement('div'); div.style="padding:15px; background:var(--card); margin-bottom:5px; border-radius:12px; font-size:13px; font-weight:600;";
+                div.innerHTML = `<span>${n.title||'无标题'}</span> <span style="opacity:0.4; float:right; font-weight:normal;">${n.date}</span>`;
+                div.onclick = () => openNote(n.date); list.appendChild(div);
+            });
+        }, 300);
+    }
+
+    // 设置与辅助
     function save(manual) {
         const c = editor.innerText;
         const d = { date: curKey, title: document.getElementById('e-title').value, content: c, mood: activeMoods.join(','), words: getWordCount(c) };
@@ -359,40 +356,16 @@
             setTimeout(() => hint.innerText = "", 2000);
         };
     }
-
-    function filterIndex() {
-        clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(() => {
-            const q = document.getElementById('search-input').value.toLowerCase();
-            const list = document.getElementById('index-list');
-            list.innerHTML = ''; if(!q) return;
-            Array.from(dataMap.values()).filter(n=>(n.title+n.content).toLowerCase().includes(q)).slice(0,5).forEach(n=>{
-                const div = document.createElement('div'); div.style="padding:15px; background:var(--card); margin-bottom:5px; border-radius:12px; font-size:13px;";
-                div.innerHTML = `<strong>${n.title||'无标题'}</strong> <span style="opacity:0.4; float:right;">${n.date}</span>`;
-                div.onclick = () => openNote(n.date); list.appendChild(div);
-            });
-        }, 300);
-    }
-
-    // 设置与辅助
     function renderMoodModal() {
-        const container = document.getElementById('mood-grid-main');
-        container.innerHTML = '';
-        const all = [...new Set([...MOOD_DEFAULTS, ...activeMoods])];
-        all.forEach(m => {
-            const el = document.createElement('div');
-            el.className = `mood-tag ${activeMoods.includes(m) ? 'active' : ''}`;
-            el.innerText = m;
-            el.onclick = () => {
-                if(activeMoods.includes(m)) activeMoods = activeMoods.filter(x => x !== m);
-                else if(activeMoods.length < 5) activeMoods.push(m);
+        const container = document.getElementById('mood-grid-main'); container.innerHTML = '';
+        [...new Set([...MOOD_DEFAULTS, ...activeMoods])].forEach(m => {
+            const el = document.createElement('div'); el.className = `mood-tag ${activeMoods.includes(m) ? 'active' : ''}`;
+            el.innerText = m; el.onclick = () => {
+                if(activeMoods.includes(m)) activeMoods = activeMoods.filter(x => x !== m); else if(activeMoods.length < 5) activeMoods.push(m);
                 updateMoodDisplay(); renderMoodModal(); save(false);
-            };
-            container.appendChild(el);
+            }; container.appendChild(el);
         });
     }
-
-    function getRGB(v) { return getComputedStyle(document.documentElement).getPropertyValue(v.slice(4,-1)).trim(); }
     function moveMonth(n) { curMonth.setMonth(curMonth.getMonth()+n); sync(); }
     function goToday() { curMonth = new Date(); sync(); }
     function openMoodModal() { renderMoodModal(); document.getElementById('mood-modal').style.display='flex'; }
