@@ -1,8 +1,12 @@
-const CACHE_NAME = 'shixu-final-v1';
-const assets = ['./', './index.html', './manifest.json', 'https://cdn.jsdelivr.net/npm/lunar-javascript/lunar.js'];
+const CACHE_NAME = 'shixu-v3'; // 修改了这个名字
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(assets)));
+  self.skipWaiting();
+  e.waitUntil(caches.open(CACHE_NAME).then(c => c.addAll(['./', './index.html', './manifest.json', 'https://cdn.jsdelivr.net/npm/lunar-javascript/lunar.js'])));
+});
+
+self.addEventListener('activate', e => {
+  e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))));
 });
 
 self.addEventListener('fetch', e => {
