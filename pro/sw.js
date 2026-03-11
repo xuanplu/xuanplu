@@ -1,4 +1,4 @@
-const CACHE_NAME = 'shixupro'; // 修改了这个名字
+const CACHE_NAME = 'shixupro_V1'; // 修改了这个名字
 
 self.addEventListener('install', e => {
   self.skipWaiting();

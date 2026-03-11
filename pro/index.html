@@ -9,7 +9,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <script src="https://cdn.jsdelivr.net/npm/lunar-javascript/lunar.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+	<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 
     <style>
         :root { 
@@ -60,6 +60,7 @@
         .img-item-v { width: calc(50% - 4px); height: 140px; object-fit: cover; border-radius: 12px; margin-bottom: 4px; cursor: pointer; transition: transform 0.2s; }
 		.img-item-v:active { transform: scale(0.96); opacity: 0.9; }
         
+        /* 增强：Pro 图片查看器样式 */
         #img-viewer { position: fixed; inset: 0; background: black; z-index: 2500; display: none; touch-action: none; align-items: center; justify-content: center; overflow: hidden; }
         #viewer-img { max-width: 100%; max-height: 100%; transition: transform 0.1s ease-out; transform-origin: center center; }
         .viewer-close { position: absolute; top: 40px; right: 20px; width: 40px; height: 40px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 24px; z-index: 2600; }
@@ -73,13 +74,21 @@
 </head>
 <body class="">
 
+<script>
+    (function() {
+        const savedTheme = localStorage.getItem('ShiXu_Pro_Theme') || 'auto';
+        const isDark = savedTheme === 'dark' || (savedTheme === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        if (isDark) document.body.classList.add('dark');
+    })();
+</script>
+
 <div id="img-viewer" onclick="closeViewer()">
     <div class="viewer-close">×</div>
     <img id="viewer-img" onclick="event.stopPropagation()">
 </div>
 
 <div id="progress-modal">
-    <div id="progress-text" style="font-size: 16px; font-weight: 600;">正在处理...</div>
+    <div id="progress-text" style="font-size: 16px; font-weight: 600;">正在准备数据...</div>
     <div class="progress-bar-container"><div id="progress-bar-fill"></div></div>
     <div id="progress-sub" style="font-size: 12px; margin-top: 10px; opacity: 0.7;">请勿关闭浏览器</div>
 </div>
@@ -168,18 +177,18 @@
         <h3 style="font-weight: 300; margin-top: 0; margin-bottom: 20px;">系统设置</h3>
         <div style="display: flex; justify-content: space-between; align-items: center; padding: 14px; background: var(--mood-bg); border-radius: 15px; margin-bottom: 12px;">
             <span style="font-size: 14px; font-weight: 600;">主题外观</span>
-            <select id="theme-select" onchange="applyTheme(this.value)" style="background: none; border: none; color: var(--primary); font-weight: 600; font-size: 14px;">
+            <select id="theme-select" onchange="applyTheme(this.value)" style="background: none; border: none; color: var(--primary); font-weight: 600; font-size: 14px; -webkit-appearance: none;">
                 <option value="auto">跟随系统</option>
                 <option value="light">明亮模式</option>
                 <option value="dark">深色模式</option>
             </select>
         </div>
+		<button class="btn-pill" style="width:100%; color:var(--accent); text-align:left; padding: 14px; margin-bottom:12px;" onclick="cleanStorage()">🧹 清理冗余图片 </button>
         <button class="btn-pill" style="width:100%; margin-bottom:12px; text-align:left; padding: 14px;" onclick="showPwdModal()">修改密码 →</button>
-        <button class="btn-pill" style="width:100%; margin-bottom:12px; text-align:left; padding: 14px;" onclick="exportContainer()">备份数据 (Pro 容器)</button>
-        <button class="btn-pill" style="width:100%; margin-bottom:12px; text-align:left; padding: 14px;" onclick="document.getElementById('file-i').click()">恢复数据 (支持旧版 JSON/ZIP)</button>
-        <button class="btn-pill" style="width:100%; color:var(--accent); text-align:left; padding: 14px; margin-bottom:12px;" onclick="cleanStorage()">🧹 清理冗余图片 (释放空间)</button>
+        <button class="btn-pill" style="width:100%; margin-bottom:12px; text-align:left; padding: 14px;" onclick="exportJSON()">备份数据 (含图片)</button>
+        <button class="btn-pill" style="width:100%; margin-bottom:12px; text-align:left; padding: 14px;" onclick="document.getElementById('file-i').click()">恢复数据</button>
         <button class="btn-pill" style="width:100%; color:var(--danger); text-align:left; padding: 14px; margin-top: 10px;" onclick="clearAllData()">⚠️ 清空本地记录</button>
-        <input type="file" id="file-i" style="display:none" onchange="universalImport(this)">
+        <input type="file" id="file-i" style="display:none" onchange="importJSON(this)">
     </div>
 </div>
 
@@ -201,6 +210,15 @@
 </div>
 
 <script>
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js').then(reg => {
+            reg.onupdatefound = () => {
+                const worker = reg.installing;
+                worker.onstatechange = () => { if (worker.state === 'installed' && navigator.serviceWorker.controller) location.reload(); };
+            };
+        });
+    }
+
     let db, curMonth = new Date(), curKey = '', dataMap = new Map();
     let isEditState = false, activeMoods = [], currentImages = [], autoSaveTimer = null;
     const PWD_KEY = 'ShiXu_PWD';
@@ -208,7 +226,31 @@
     const MOOD_DEFAULTS = ['💡 灵感', '🚀 动力', '🌈 快乐', '😊 平静', '🌿 成长', '☕ 悠闲', '📝 思考', '🤔 疑惑', '🌑 害怕', '💢 气愤', '😢 低落'];
     const moodFamilies = {'💡 灵感': 'f-energy', '🚀 动力': 'f-energy', '🌈 快乐': 'f-energy', '😊 平静': 'f-healing', '🌿 成长': 'f-healing', '☕ 悠闲': 'f-healing', '📝 思考': 'f-thinking', '🤔 疑惑': 'f-thinking', '🌑 害怕': 'f-melancholy', '💢 气愤': 'f-release', '😢 低落': 'f-melancholy'};
 
-    /* --- 初始化与安全 --- */
+    function applyTheme(mode) {
+        localStorage.setItem('ShiXu_Pro_Theme', mode);
+        const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const isDark = (mode === 'dark') || (mode === 'auto' && systemDark);
+        document.body.classList.toggle('dark', isDark);
+    }
+
+    function initTheme() {
+        const saved = localStorage.getItem('ShiXu_Pro_Theme') || 'auto';
+        const select = document.getElementById('theme-select');
+        if(select) select.value = saved;
+        applyTheme(saved);
+    }
+
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+        if (localStorage.getItem('ShiXu_Pro_Theme') === 'auto') applyTheme('auto');
+    });
+
+    function getWordCount(text) {
+        if (!text) return 0;
+        const cn = text.match(/[\u4e00-\u9fa5]/g) || [];
+        const en = text.match(/[a-zA-Z]{2,}/g) || [];
+        return cn.length + en.length;
+    }
+
     function checkAuth() {
         const input = document.getElementById('pwd-i').value, stored = localStorage.getItem(PWD_KEY);
         if(!stored) { localStorage.setItem(PWD_KEY, btoa(input)); start(); }
@@ -245,7 +287,6 @@
         renderCal(); renderGrowth(all, viewYear);
     }
 
-    /* --- 核心业务逻辑 --- */
     function renderCal() {
         const g = document.getElementById('cal-g'); g.innerHTML = '';
         const y = curMonth.getFullYear(), m = curMonth.getMonth();
@@ -281,17 +322,64 @@
         d ? showView(d) : enterEdit();
     }
 
+    function closePage() {
+        const dp = document.getElementById('d-page'), hp = document.getElementById('h-page');
+        hp.style.display = 'block';
+        requestAnimationFrame(() => { dp.classList.remove('active'); setTimeout(() => { dp.style.display = 'none'; sync(); }, 300); });
+    }
+
+    function renderGrowth(all, year) {
+        const grid = document.getElementById('growth-grid'); grid.innerHTML = '';
+        all.filter(n => parseInt(n.date.split('/')[0]) === parseInt(year))
+           .sort((a,b) => new Date(a.date.replace(/\//g, '-')) - new Date(b.date.replace(/\//g, '-')))
+           .forEach(n => {
+               const cell = document.createElement('div');
+               const moods = n.mood ? n.mood.split(',') : [];
+               const family = moods.length > 0 ? (moodFamilies[moods[0]] || 'f-custom') : 'f-custom';
+               const lv = n.words > 300 ? 'lv-3' : (n.words > 100 ? 'lv-2' : 'lv-1');
+               cell.className = `growth-cell ${family} ${lv}`;
+               const cssVarStr = moodFamilies[moods[0]] ? `--${moodFamilies[moods[0]].split('-')[1]}` : '--custom';
+               const rgbValue = getComputedStyle(document.documentElement).getPropertyValue(cssVarStr).trim();
+               cell.style.backgroundColor = `rgba(${rgbValue}, ${lv==='lv-3'?1:lv==='lv-2'?0.6:0.3})`;
+               grid.appendChild(cell);
+           });
+    }
+
+    function renderMD(t) {
+        if (!t) return '';
+        return t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;") 
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/__(.*?)__/g, '<u>$1</u>').replace(/~~(.*?)~~/g, '<del>$1</del>')
+                .replace(/^> (.*$)/gm, '<blockquote>$1</blockquote>').replace(/\n/g, '<br>');
+    }
+
+    async function showView(d) {
+        isEditState = false; 
+        document.getElementById('v-box').style.display='block'; document.getElementById('e-box').style.display='none';
+        document.getElementById('v-tools').style.display='flex'; document.getElementById('e-tools').style.display='none';
+        document.getElementById('title-v').innerText = d.title || "无标题";
+        document.getElementById('meta-v').innerText = `${d.mood?d.mood.replace(/,/g,' '):''} · ${d.words} 字`;
+        const vImgList = document.getElementById('img-list-v'); vImgList.innerHTML = '';
+        if(d.imgs && d.imgs.length) {
+            for(const item of d.imgs) {
+                const url = item.startsWith('data:') ? item : await readOPFSSafe(item);
+                if(url) vImgList.innerHTML += `<img src="${url}" class="img-item-v" onclick="openViewer('${url}')">`;
+            }
+        }
+        document.getElementById('content-v').innerHTML = renderMD(d.content);
+    }
+
+    const editor = document.getElementById('e-content');
+    editor.addEventListener('input', () => {
+        document.getElementById('wc-d').innerText = getWordCount(editor.innerText.trim());
+        clearTimeout(autoSaveTimer); autoSaveTimer = setTimeout(() => isEditState && save(false), 5000);		
+    });
+	document.getElementById('e-title').addEventListener('input', () => {
+		clearTimeout(autoSaveTimer); autoSaveTimer = setTimeout(() => isEditState && save(false), 5000);
+	});
+	
     function save(manual) {
-        const c = document.getElementById('e-content').innerText;
-        const d = { 
-            date: curKey, 
-            title: document.getElementById('e-title').value, 
-            content: c, 
-            mood: activeMoods.join(','), 
-            words: getWordCount(c), 
-            imgs: currentImages,
-            updatedAt: Date.now()
-        };
+        const c = editor.innerText;
+        const d = { date: curKey, title: document.getElementById('e-title').value, content: c, mood: activeMoods.join(','), words: getWordCount(c), imgs: currentImages };
         db.transaction("notes", "readwrite").objectStore("notes").put(d).onsuccess = () => {
             if(manual) showView(d);
             const hint = document.getElementById('save-hint'); hint.innerText = "已保存 " + new Date().toLocaleTimeString().slice(0,5);
@@ -299,159 +387,272 @@
         };
     }
 
-    /* --- Pro 级容器化备份逻辑 --- */
-    async function exportContainer() {
-        const zip = new JSZip();
-        try {
-            updateProgress("正在打包文字...", 10);
-            const notes = await new Promise(r => db.transaction("notes").objectStore("notes").getAll().onsuccess = e => r(e.target.result));
-            const imgFolder = zip.folder("images");
-
-            for (let i = 0; i < notes.length; i++) {
-                updateProgress(`正在提取媒体 (${i+1}/${notes.length})`, (i/notes.length)*90);
-                if (notes[i].imgs) {
-                    for (let imgName of notes[i].imgs) {
-                        if (imgName.startsWith('data:')) continue;
-                        try {
-                            const fileBlob = await readOPFS(imgName);
-                            imgFolder.file(imgName, fileBlob);
-                        } catch(e) {}
-                    }
-                }
-            }
-            zip.file("data.json", JSON.stringify(notes));
-            const content = await zip.generateAsync({type:"blob", compression: "DEFLATE"});
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(content);
-            a.download = `ShiXu_Pro_Container_${new Date().getTime()}.zip`;
-            a.click();
-        } catch(e) { alert("导出失败: " + e.message); }
-        finally { document.getElementById('progress-modal').style.display = 'none'; }
+    function filterIndex() {
+        const q = document.getElementById('search-input').value.toLowerCase(), list = document.getElementById('index-list');
+        list.innerHTML = ''; if(!q) return;
+        Array.from(dataMap.values()).filter(n=>(n.title+n.content).toLowerCase().includes(q)).slice(0,5).forEach(n=>{
+            const div = document.createElement('div'); div.style="padding:15px; background:var(--card); margin-bottom:5px; border-radius:12px; font-size:13px; font-weight:600;";
+            div.innerHTML = `<span>${n.title||'无标题'}</span> <span style="opacity:0.4; float:right; font-weight:normal;">${n.date}</span>`;
+            div.onclick = () => openNote(n.date); list.appendChild(div);
+        });
     }
 
-    async function universalImport(f) {
-        if (!f.files[0]) return;
-        const file = f.files[0];
-        try {
-            if (file.name.endsWith('.zip')) {
-                updateProgress("解析容器...", 10);
-                const zip = await JSZip.loadAsync(file);
-                const jsonStr = await zip.file("data.json").async("text");
-                const data = JSON.parse(jsonStr);
-                const imgFolder = zip.folder("images");
-                await processImport(data, async (ref) => {
-                    const imgFile = imgFolder.file(ref);
-                    return imgFile ? await imgFile.async("blob") : null;
-                });
-            } else {
-                updateProgress("解析旧版 JSON...", 10);
-                const text = await new Response(file.stream()).text();
-                const data = JSON.parse(text);
-                await processImport(data, async (ref) => ref.startsWith('data:') ? b64ToBlob(ref) : null);
-            }
-            sync(); alert("恢复完成");
-        } catch(e) { alert("导入错误: " + e.message); }
-        finally { document.getElementById('progress-modal').style.display = 'none'; f.value=''; }
+    function renderMoodModal() {
+        const container = document.getElementById('mood-grid-main'); container.innerHTML = '';
+        [...new Set([...MOOD_DEFAULTS, ...activeMoods])].forEach(m => {
+            const el = document.createElement('div'); el.className = `mood-tag ${moodFamilies[m]||'f-custom'} ${activeMoods.includes(m)?'active':''}`;
+            el.innerText = m; el.onclick = () => {
+                if(activeMoods.includes(m)) activeMoods = activeMoods.filter(x => x !== m); else if(activeMoods.length < 5) activeMoods.push(m);
+                updateMoodDisplay(); renderMoodModal(); editor.dispatchEvent(new Event('input'));
+            }; container.appendChild(el);
+        });
     }
 
-    async function processImport(data, getBlob) {
-        for (let i = 0; i < data.length; i++) {
-            updateProgress(`正在写入数据库 (${i+1}/${data.length})`, (i/data.length)*100);
-            const item = data[i];
-            if (item.imgs) {
-                const newImgs = [];
-                for (let ref of item.imgs) {
-                    const blob = await getBlob(ref);
-                    if (blob) {
-                        const name = `img_${Date.now()}_${Math.random().toString(36).slice(-4)}.webp`;
-                        await writeOPFS(name, blob);
-                        newImgs.push(name);
-                    } else { newImgs.push(ref); }
-                }
-                item.imgs = newImgs;
-            }
-            await new Promise(r => {
-                const tx = db.transaction("notes", "readwrite");
-                tx.objectStore("notes").put(item);
-                tx.oncomplete = r;
-            });
+    async function doDel() { 
+        if(confirm("删除？")) {
+            const d = dataMap.get(curKey);
+            if(d && d.imgs) { for(const item of d.imgs) { if(!item.startsWith('data:')) await delOPFS(item); } }
+            db.transaction("notes","readwrite").objectStore("notes").delete(curKey).onsuccess=()=>closePage(); 
         }
     }
 
-    /* --- 存储空间清理器 (The Cleaner) --- */
-    async function cleanStorage() {
-        if (!confirm("此操作将永久删除本地未被日记引用的图片文件以释放空间。是否继续？")) return;
-        updateProgress("正在扫描白名单...", 10);
-        try {
-            const tx = db.transaction("notes", "readonly");
-            const all = await new Promise(r => tx.objectStore("notes").getAll().onsuccess = e => r(e.target.result));
-            const whiteList = new Set();
-            all.forEach(n => { if(n.imgs) n.imgs.forEach(img => whiteList.add(img)); });
-
-            const root = await navigator.storage.getDirectory();
-            let cleanedCount = 0;
-            updateProgress("正在清理冗余文件...", 50);
-            
-            for await (const name of root.keys()) {
-                if (!whiteList.has(name)) {
-                    await root.removeEntry(name);
-                    cleanedCount++;
-                }
-            }
-            alert(`清理完成！共释放了 ${cleanedCount} 个冗余文件。`);
-        } catch(e) { alert("清理失败: " + e.message); }
-        finally { document.getElementById('progress-modal').style.display = 'none'; }
+    function enterEdit() {
+        isEditState = true; const d = dataMap.get(curKey);
+        document.getElementById('v-box').style.display='none'; document.getElementById('e-box').style.display='block';
+        document.getElementById('v-tools').style.display='none'; document.getElementById('e-tools').style.display='block';
+        document.getElementById('e-title').value = d?d.title:''; editor.innerText = d?d.content:'';
+        activeMoods = d && d.mood ? d.mood.split(',') : []; currentImages = d && d.imgs ? [...d.imgs] : [];
+        renderImgPreviewE(); updateMoodDisplay(); 
+        document.getElementById('wc-d').innerText = getWordCount(editor.innerText);
     }
 
-    /* --- 基础辅助函数 --- */
+    function addTransientMood() { const v = document.getElementById('custom-mood-i').value.trim(); if(v) { activeMoods.push(v); document.getElementById('custom-mood-i').value=''; updateMoodDisplay(); renderMoodModal(); editor.dispatchEvent(new Event('input')); } }
+    function moveMonth(n) { curMonth.setMonth(curMonth.getMonth()+n); sync(); }
+    function goToday() { curMonth = new Date(); sync(); }
+    function openMoodModal() { renderMoodModal(); document.getElementById('mood-modal').style.display='flex'; }
+    function updateMoodDisplay() { document.getElementById('mood-trigger-btn').innerText = activeMoods.length ? activeMoods.join(', ') : '选择心情...'; }
+    function showPwdModal() { document.getElementById('pwd-modal').style.display='flex'; document.getElementById('settings-modal').style.display='none'; }
+    function updatePassword() { const oldV = document.getElementById('old-pwd').value, newV = document.getElementById('new-pwd').value; if(btoa(oldV) === localStorage.getItem(PWD_KEY)) { localStorage.setItem(PWD_KEY, btoa(newV)); alert("修改成功"); document.getElementById('pwd-modal').style.display='none'; } else alert("错误"); }
+    function clearAllData() { if(confirm("清空？")) db.transaction("notes","readwrite").objectStore("notes").clear().onsuccess=()=>location.reload(); }
+    function goRandom() { const ks = Array.from(dataMap.keys()); if(ks.length) openNote(ks[Math.floor(Math.random()*ks.length)]); }
+
+    /* --- 核心修复：Pro 级导入与手势查看逻辑 --- */
+
+    function updateProgress(text, pct) {
+        const modal = document.getElementById('progress-modal');
+        modal.style.display = 'flex';
+        document.getElementById('progress-text').innerText = text;
+        document.getElementById('progress-bar-fill').style.width = pct + '%';
+    }
+
+    // 强力 Base64 转 Blob 逻辑
     function b64ToBlob(b64) {
-        const parts = b64.split(';base64,'), contentType = parts[0].split(':')[1];
-        const raw = window.atob(parts[1]), u8 = new Uint8Array(raw.length);
-        for (let i = 0; i < raw.length; ++i) u8[i] = raw.charCodeAt(i);
-        return new Blob([u8], {type: contentType});
+        const parts = b64.split(';base64,');
+        const contentType = parts[0].split(':')[1];
+        const raw = window.atob(parts[1]);
+        const uInt8Array = new Uint8Array(raw.length);
+        for (let i = 0; i < raw.length; ++i) uInt8Array[i] = raw.charCodeAt(i);
+        return new Blob([uInt8Array], {type: contentType});
     }
 
+    // 1. 容器化导出 (使用 ZIP 减少体积)
+	async function exportJSON() {
+		const zip = new JSZip();
+		try {
+			updateProgress("正在打包文字...", 10);
+			const notes = await new Promise(r => db.transaction("notes").objectStore("notes").getAll().onsuccess = e => r(e.target.result));
+			const total = notes.length;
+			
+			// 分离图片与文字，图片存入 images 文件夹，JSON 只存文件名
+			for (let i = 0; i < total; i++) {
+				updateProgress(`处理媒体中 (${i+1}/${total})`, ((i+1)/total)*90);
+				if (notes[i].imgs && notes[i].imgs.length) {
+					for (let imgName of notes[i].imgs) {
+						if (imgName.startsWith('data:')) continue; // 跳过未处理的旧 Base64 数据
+						try {
+							const fileBlob = await readOPFS(imgName);
+							zip.file("images/" + imgName, fileBlob); // 以二进制存入 ZIP
+						} catch(e) { console.warn("丢失图片引用:", imgName); }
+					}
+				}
+			}
+			
+			zip.file("data.json", JSON.stringify(notes));
+			const content = await zip.generateAsync({type:"blob", compression: "DEFLATE"});
+			
+			const a = document.createElement('a');
+			a.href = URL.createObjectURL(content);
+			a.download = `ShiXu_Pro_Backup_${new Date().getTime()}.zip`;
+			a.click();
+		} catch(e) { alert("导出失败: " + e.message); }
+		finally { document.getElementById('progress-modal').style.display = 'none'; }
+	}
+
+    async function importJSON(f) {
+		if (!f.files[0]) return;
+		const file = f.files[0];
+		const isZip = file.name.endsWith('.zip');
+
+		try {
+			if (isZip) {
+				updateProgress("解析 ZIP 容器...", 10);
+				const zip = await JSZip.loadAsync(file);
+				const jsonStr = await zip.file("data.json").async("text");
+				const data = JSON.parse(jsonStr);
+				const imgFolder = zip.folder("images");
+				
+				await processImportLoop(data, async (ref) => {
+					const imgInZip = imgFolder.file(ref);
+					return imgInZip ? await imgInZip.async("blob") : null;
+				});
+			} else {
+				updateProgress("解析旧版 JSON...", 10);
+				const text = await new Response(file.stream()).text();
+				const data = JSON.parse(text);
+				// 旧版 JSON 图片是 Base64，需要转回 Blob
+				await processImportLoop(data, async (ref) => ref.startsWith('data:') ? b64ToBlob(ref) : null);
+			}
+			sync(); alert("恢复成功！图片已同步还原。");
+		} catch(e) { alert("导入失败: " + e.message); }
+		finally { document.getElementById('progress-modal').style.display = 'none'; f.value=''; }
+	}
+	
+	// 内部函数：处理数据入库与图片物理还原
+	async function processImportLoop(data, getBlobFn) {
+		const total = data.length;
+		for (let i = 0; i < total; i++) {
+			updateProgress(`正在恢复记录 (${i+1}/${total})`, (i/total)*100);
+			const item = data[i];
+			if (item.imgs) {
+				const finalImgs = [];
+				for (let ref of item.imgs) {
+					const blob = await getBlobFn(ref);
+					if (blob) {
+						// 如果是从 Base64 恢复或 ZIP 提取，重新生成唯一名并写入 OPFS
+						const name = ref.startsWith('data:') ? `img_${Date.now()}_${Math.random().toString(36).slice(-4)}.webp` : ref;
+						await writeOPFS(name, blob); // 物理还原文件
+						finalImgs.push(name);
+					} else { finalImgs.push(ref); }
+				}
+				item.imgs = finalImgs;
+			}
+			await new Promise(r => {
+				const tx = db.transaction("notes", "readwrite");
+				tx.objectStore("notes").put(item);
+				tx.oncomplete = r;
+			});
+		}
+	}
+
+	// 3. 新增：存储空间清理器 (物理删除冗余文件)
+	async function cleanStorage() {
+		if (!confirm("此操作将永久删除本地未被日记引用的图片，是否继续？")) return;
+		updateProgress("扫描数据库引用...", 20);
+		try {
+			const tx = db.transaction("notes", "readonly");
+			const all = await new Promise(r => tx.objectStore("notes").getAll().onsuccess = e => r(e.target.result));
+			const whiteList = new Set();
+			all.forEach(n => { if(n.imgs) n.imgs.forEach(img => whiteList.add(img)); });
+
+			const root = await navigator.storage.getDirectory();
+			let deleted = 0;
+			for await (const name of root.keys()) {
+				if (!whiteList.has(name)) {
+					await root.removeEntry(name);
+					deleted++;
+				}
+			}
+			alert(`清理完成，删除了 ${deleted} 个孤儿文件。`);
+		} catch(e) { alert("清理失败: " + e.message); }
+		finally { document.getElementById('progress-modal').style.display = 'none'; }
+	}
+
+    /* --- Pro 图片查看器逻辑 (支持双指缩放) --- */
+    let viewerScale = 1, viewerStartDist = 0;
+    function openViewer(url) {
+        const v = document.getElementById('img-viewer'), img = document.getElementById('viewer-img');
+        img.src = url; img.style.transform = `scale(1)`; viewerScale = 1;
+        v.style.display = 'flex';
+    }
+    function closeViewer() { document.getElementById('img-viewer').style.display = 'none'; }
+
+    function initViewer() {
+        const img = document.getElementById('viewer-img');
+        img.addEventListener('touchstart', e => {
+            if (e.touches.length === 2) {
+                viewerStartDist = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
+            }
+        });
+        img.addEventListener('touchmove', e => {
+            if (e.touches.length === 2) {
+                const dist = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
+                const factor = dist / viewerStartDist;
+                viewerScale = Math.min(Math.max(1, viewerScale * factor), 4); // 限制缩放倍数 1-4
+                img.style.transform = `scale(${viewerScale})`;
+                viewerStartDist = dist;
+            }
+        });
+    }
+
+    /* --- 底层存储 API --- */
     async function writeOPFS(n, b) {
         const r = await navigator.storage.getDirectory();
         const h = await r.getFileHandle(n, { create: true });
         const w = await h.createWritable(); await w.write(b); await w.close();
     }
-    async function readOPFS(n) { const r = await navigator.storage.getDirectory(); return await (await r.getFileHandle(n)).getFile(); }
-    function updateProgress(t, p) {
-        const m = document.getElementById('progress-modal'); m.style.display = 'flex';
-        document.getElementById('progress-text').innerText = t;
-        document.getElementById('progress-bar-fill').style.width = p + '%';
+    async function readOPFS(n) {
+        const r = await navigator.storage.getDirectory();
+        return await (await r.getFileHandle(n)).getFile();
     }
-    function getWordCount(text) { return (text.match(/[\u4e00-\u9fa5]/g) || []).length + (text.match(/[a-zA-Z]{2,}/g) || []).length; }
-    function initTheme() {
-        const saved = localStorage.getItem('ShiXu_Pro_Theme') || 'auto';
-        document.getElementById('theme-select').value = saved;
-        applyTheme(saved);
+    async function readOPFSSafe(n) {
+        try { return URL.createObjectURL(await readOPFS(n)); } catch(e) { return null; }
     }
-    function applyTheme(mode) {
-        localStorage.setItem('ShiXu_Pro_Theme', mode);
-        const isDark = (mode === 'dark') || (mode === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-        document.body.classList.toggle('dark', isDark);
+    async function delOPFS(n) {
+        try { const r = await navigator.storage.getDirectory(); await r.removeEntry(n); } catch(e){}
     }
-
-    /* --- 其余 UI 交互函数 (略，保持原有功能一致) --- */
-    function closePage() { const dp = document.getElementById('d-page'), hp = document.getElementById('h-page'); hp.style.display = 'block'; requestAnimationFrame(() => { dp.classList.remove('active'); setTimeout(() => { dp.style.display = 'none'; sync(); }, 300); }); }
-    async function showView(d) { isEditState = false; document.getElementById('v-box').style.display='block'; document.getElementById('e-box').style.display='none'; document.getElementById('v-tools').style.display='flex'; document.getElementById('e-tools').style.display='none'; document.getElementById('title-v').innerText = d.title || "无标题"; document.getElementById('meta-v').innerText = `${d.mood?d.mood.replace(/,/g,' '):''} · ${d.words} 字`; const vImgList = document.getElementById('img-list-v'); vImgList.innerHTML = ''; if(d.imgs) { for(const item of d.imgs) { const file = await readOPFS(item); const url = URL.createObjectURL(file); vImgList.innerHTML += `<img src="${url}" class="img-item-v" onclick="openViewer('${url}')">`; } } document.getElementById('content-v').innerText = d.content; }
-    function enterEdit() { isEditState = true; const d = dataMap.get(curKey); document.getElementById('v-box').style.display='none'; document.getElementById('e-box').style.display='block'; document.getElementById('v-tools').style.display='none'; document.getElementById('e-tools').style.display='block'; document.getElementById('e-title').value = d?d.title:''; document.getElementById('e-content').innerText = d?d.content:''; activeMoods = d && d.mood ? d.mood.split(',') : []; currentImages = d && d.imgs ? [...d.imgs] : []; renderImgPreviewE(); updateMoodDisplay(); }
-    async function renderImgPreviewE() { const box = document.getElementById('img-list-e'); box.innerHTML = ''; for(let i=0; i<currentImages.length; i++) { try { const file = await readOPFS(currentImages[i]); const url = URL.createObjectURL(file); const wrap = document.createElement('div'); wrap.className = 'pre-img-wrap'; wrap.innerHTML = `<img src="${url}" style="width:100%; height:100%; object-fit:cover; border-radius:8px;"><div class="pre-img-del" onclick="removeImg(${i})">×</div>`; box.appendChild(wrap); } catch(e){} } }
-    async function removeImg(idx) { currentImages.splice(idx, 1); renderImgPreviewE(); }
-    async function handleImgUpload(input) { for (const file of input.files) { const blob = await compressImg(file); const name = `img_${Date.now()}_${Math.random().toString(36).slice(-4)}.webp`; await writeOPFS(name, blob); currentImages.push(name); } renderImgPreviewE(); }
-    async function compressImg(file) { return new Promise((resolve) => { const rd = new FileReader(); rd.readAsDataURL(file); rd.onload = e => { const img = new Image(); img.src = e.target.result; img.onload = () => { const cvs = document.createElement('canvas'); let w = img.width, h = img.height; if(w > 1200) { h *= 1200 / w; w = 1200; } cvs.width = w; cvs.height = h; cvs.getContext('2d').drawImage(img, 0, 0, w, h); cvs.toBlob(b => resolve(b), 'image/webp', 0.8); }; }; }); }
-    function openViewer(url) { const v = document.getElementById('img-viewer'), img = document.getElementById('viewer-img'); img.src = url; v.style.display = 'flex'; }
-    function closeViewer() { document.getElementById('img-viewer').style.display = 'none'; }
-    function initViewer() {}
-    function moveMonth(n) { curMonth.setMonth(curMonth.getMonth()+n); sync(); }
-    function goToday() { curMonth = new Date(); sync(); }
-    function openMoodModal() { renderMoodModal(); document.getElementById('mood-modal').style.display='flex'; }
-    function renderMoodModal() { const container = document.getElementById('mood-grid-main'); container.innerHTML = ''; [...new Set([...MOOD_DEFAULTS, ...activeMoods])].forEach(m => { const el = document.createElement('div'); el.className = `mood-tag ${moodFamilies[m]||'f-custom'} ${activeMoods.includes(m)?'active':''}`; el.innerText = m; el.onclick = () => { if(activeMoods.includes(m)) activeMoods = activeMoods.filter(x => x !== m); else if(activeMoods.length < 5) activeMoods.push(m); updateMoodDisplay(); renderMoodModal(); }; container.appendChild(el); }); }
-    function updateMoodDisplay() { document.getElementById('mood-trigger-btn').innerText = activeMoods.length ? activeMoods.join(', ') : '选择心情...'; }
-    function goRandom() { const ks = Array.from(dataMap.keys()); if(ks.length) openNote(ks[Math.floor(Math.random()*ks.length)]); }
-    function renderGrowth(all, year) { const grid = document.getElementById('growth-grid'); grid.innerHTML = ''; all.filter(n => parseInt(n.date.split('/')[0]) === parseInt(year)).sort((a,b) => new Date(a.date.replace(/\//g, '-')) - new Date(b.date.replace(/\//g, '-'))).forEach(n => { const cell = document.createElement('div'); cell.className = 'growth-cell'; cell.style.backgroundColor = n.words > 300 ? 'var(--accent)' : 'var(--sub)'; grid.appendChild(cell); }); }
+    async function renderImgPreviewE() {
+        const box = document.getElementById('img-list-e'); box.innerHTML = '';
+        for(let i=0; i<currentImages.length; i++) {
+            const url = currentImages[i].startsWith('data:') ? currentImages[i] : await readOPFSSafe(currentImages[i]);
+            if(url) {
+                const wrap = document.createElement('div'); wrap.className = 'pre-img-wrap';
+                wrap.innerHTML = `<img src="${url}" style="width:100%; height:100%; object-fit:cover; border-radius:8px;"><div class="pre-img-del" onclick="removeImg(${i})">×</div>`;
+                box.appendChild(wrap);
+            }
+        }
+    }
+    async function removeImg(idx) {
+        const itm = currentImages[idx]; if(!itm.startsWith('data:')) await delOPFS(itm);
+        currentImages.splice(idx, 1); renderImgPreviewE(); editor.dispatchEvent(new Event('input'));
+    }
+    async function handleImgUpload(input) {
+        if(!input.files.length) return;
+        const hint = document.getElementById('save-hint'); hint.innerText = "处理中...";
+        try {
+            for (const file of input.files) {
+                const blob = await compressImg(file);
+                const name = `img_${Date.now()}_${Math.random().toString(36).slice(-4)}.webp`;
+                try { await writeOPFS(name, blob); currentImages.push(name); } 
+                catch(e) { const b64 = await new Promise(r => { const rd = new FileReader(); rd.onload=()=>r(rd.result); rd.readAsDataURL(blob); }); currentImages.push(b64); }
+            }
+            renderImgPreviewE(); editor.dispatchEvent(new Event('input'));
+        } finally { hint.innerText = ""; input.value = ''; }
+    }
+    async function compressImg(file) {
+        return new Promise((resolve, reject) => {
+            const rd = new FileReader(); rd.readAsDataURL(file);
+            rd.onload = e => {
+                const img = new Image(); img.src = e.target.result;
+                img.onload = () => {
+                    const cvs = document.createElement('canvas'); let w = img.width, h = img.height;
+                    if(w > 1200) { h *= 1200 / w; w = 1200; }
+                    cvs.width = w; cvs.height = h; cvs.getContext('2d').drawImage(img, 0, 0, w, h);
+                    cvs.toBlob(b => resolve(b), 'image/webp', 0.8);
+                };
+                img.onerror = reject;
+            };
+        });
+    }
 </script>
 </body>
 </html>
